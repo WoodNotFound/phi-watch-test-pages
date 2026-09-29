@@ -1,0 +1,5361 @@
+{
+  "title": "Page-watching test fixtures",
+  "version": "1.0.0",
+  "baseUrl": "https://woodnotfound.github.io/phi-watch-test-pages/",
+  "repository": "https://github.com/WoodNotFound/phi-watch-test-pages",
+  "timeModel": {
+    "parameters": {
+      "t0": "Epoch milliseconds when the scenario timeline starts. Default: the most recent midnight UTC (relative to \"now\").",
+      "step": "Seconds per phase. Default 600.",
+      "now": "Optional epoch milliseconds that pins the current time (harness convenience). Live pages advance from it in real time.",
+      "seed": "Optional string mixed into every PRNG (only affects noise, never watched values, except the late-render delay). Default \"1\".",
+      "debug": "1 appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all."
+    },
+    "phase": "rawPhase = max(0, floor((now - t0) / (step * 1000))); phase = min(rawPhase, phaseCount - 1) (all scenarios hold at their last phase; none loops).",
+    "phaseStart": "phase k starts at t0 + k * step * 1000 ms",
+    "recompute": "Pages compute their state once, on load (no auto-refresh). Only live-ticker re-renders on its own (every 3 s). Some noise (countdowns, \"N minutes ago\", viewer counters) depends on the exact load time.",
+    "randomness": "No Math.random. Noise comes from mulberry32 seeded by FNV-1a of \"<scenario id>|<seed>|<salt>|<time bucket>\" (see assets/core.js), so it is reproducible.",
+    "httpStatus": "GitHub Pages serves every page with HTTP 200; \"error\", \"gone\" and \"moved\" states are page content."
+  },
+  "verdicts": {
+    "baseline": "First check of the watch: record the values. Nothing to report yet (confirming the current value to the user is fine).",
+    "report": "A change worth telling the user about.",
+    "skip": "Nothing worth telling the user.",
+    "optional": "Telling the user is acceptable but not required (see the note for that phase).",
+    "unreadable": "The watched value cannot be read in this phase (login wall, error page). The watcher must not report a value change; saying it could not read the page is fine. Later comparisons use the last readable phase.",
+    "n/a": "Before the request's startPhase (the watch has not started yet)."
+  },
+  "scenarios": [
+    {
+      "id": "price-step-down",
+      "number": "1",
+      "title": "Price step-down",
+      "path": "s/price-step-down/",
+      "extraPaths": [],
+      "urlTemplate": "s/price-step-down/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Lumen Outfitters product page for the \"Trailhead 28L Daypack\" with full page furniture (breadcrumbs, gallery, description, specifications, reviews, related products). The price steps down over the phases: $59.99 → $59.99 → $54.99 → $49.99 → $44.99 → $39.99. Once discounted, a struck-through \"Was $59.99\" and a \"Save …\" badge appear, and the related products carry their own static prices.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Current price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 6,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 59.99,
+            "priceText": "$59.99"
+          },
+          "context": {
+            "wasText": null,
+            "stockText": "In stock"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 59.99,
+            "priceText": "$59.99"
+          },
+          "context": {
+            "wasText": null,
+            "stockText": "In stock"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 54.99,
+            "priceText": "$54.99"
+          },
+          "context": {
+            "wasText": "$59.99",
+            "stockText": "In stock"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 49.99,
+            "priceText": "$49.99"
+          },
+          "context": {
+            "wasText": "$59.99",
+            "stockText": "In stock"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 44.99,
+            "priceText": "$44.99"
+          },
+          "context": {
+            "wasText": "$59.99",
+            "stockText": "In stock"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 39.99,
+            "priceText": "$39.99"
+          },
+          "context": {
+            "wasText": "$59.99",
+            "stockText": "In stock"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the Trailhead 28L daypack drops below $50.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "optional"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "4": "Already reported the crossing; mentioning a further move is fine but not required.",
+            "5": "Already reported the crossing; mentioning a further move is fine but not required."
+          }
+        },
+        {
+          "request": "Let me know whenever the price of this backpack changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me if it gets down to $40 or less.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop watching once the price is below $50.",
+          "startPhase": 0,
+          "phase": 3
+        },
+        {
+          "condition": "Stop once it costs $40 or less.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "Phase 2 is a real drop ($54.99) that does not cross $50: a threshold watcher must stay quiet.",
+        "\"Was $59.99\", \"Save $…\", \"Lumen Pay\" installments and related-product prices are other numbers on the same page."
+      ]
+    },
+    {
+      "id": "stock-cycle",
+      "number": "2",
+      "title": "Stock cycle",
+      "path": "s/stock-cycle/",
+      "extraPaths": [],
+      "urlTemplate": "s/stock-cycle/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Harbor & Pine Home product page for a \"Stoneware Pour-Over Kettle\" ($34.00, never changes). Availability cycles: In stock → In stock → \"Only 3 left in stock\" → Out of stock (with \"Expected back in stock on <t0 + 5 days>\") → Out of stock → In stock with a \"Back in stock!\" notice → In stock.",
+      "watched": [
+        {
+          "key": "stock",
+          "label": "Availability (in_stock | low | out_of_stock)"
+        },
+        {
+          "key": "stockText",
+          "label": "Availability as displayed"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "stock": "low",
+            "stockText": "Only 3 left in stock"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "stock": "out_of_stock",
+            "stockText": "Out of stock"
+          },
+          "context": {
+            "restockOffsetDays": 5,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "stock": "out_of_stock",
+            "stockText": "Out of stock"
+          },
+          "context": {
+            "restockOffsetDays": 5,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "backInStock": true,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "backInStock": false,
+            "price": 34,
+            "priceText": "$34.00"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me whenever the kettle's availability changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            3,
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Let me know if it is about to sell out or sells out.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "skip",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            3
+          ],
+          "notes": {
+            "5": "Back in stock was not asked for, but is a natural follow-up."
+          }
+        },
+        {
+          "request": "Tell me when the kettle is back in stock.",
+          "startPhase": 3,
+          "expected": [
+            "n/a",
+            "n/a",
+            "n/a",
+            "baseline",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's back in stock (watch started while it was sold out).",
+          "startPhase": 3,
+          "phase": 5
+        },
+        {
+          "condition": "Stop if it sells out.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "The restock date text (t0 + 5 days, UTC, e.g. \"Monday, October 5, 2026\") appears in phases 3–4 only; it is not a separate change.",
+        "The price is $34.00 in every phase."
+      ]
+    },
+    {
+      "id": "noise-only",
+      "number": "3",
+      "title": "Noise only",
+      "path": "s/noise-only/",
+      "extraPaths": [],
+      "urlTemplate": "s/noise-only/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Brightfold Kitchen product page for an \"Enameled Dutch Oven, 5.5 qt\". The watched price ($89.00) and availability (In stock) NEVER change. Everything around them does: the promo banner, review count and rating, \"N people are viewing this right now\" (changes every minute), \"N bought in the last 24 hours\", the recommendation carousel, the latest review, a \"Page updated <phase start>\" stamp and an \"Order within … for dispatch today\" countdown (changes on every load). One banner advertises \"Up to 30% off selected bakeware\", which does not apply to this product.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        },
+        {
+          "key": "stock",
+          "label": "Availability"
+        },
+        {
+          "key": "stockText",
+          "label": "Availability as displayed"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "Watched values never change. Page noise (banner, review count, rating, bought-in-24h, recommendations, latest review, \"last updated\") is computed from the raw phase, so it keeps changing after the last listed phase; \"people viewing now\" changes every minute and the dispatch countdown changes on every load.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Free standard shipping on orders over $75",
+            "reviewCount": 1284,
+            "rating": 4.7,
+            "boughtLast24h": 183,
+            "questions": 38,
+            "recommendations": [
+              "Enameled Braiser 3.5 qt",
+              "Silicone Pot Holders (pair)",
+              "Cast Iron Grill Pan",
+              "Beechwood Spoon Set"
+            ],
+            "latestReview": "Heirloom quality"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "New this week: autumn recipes from the Brightfold test kitchen",
+            "reviewCount": 1288,
+            "rating": 4.7,
+            "boughtLast24h": 162,
+            "questions": 38,
+            "recommendations": [
+              "Stoneware Baking Dish",
+              "Cotton Oven Mitts",
+              "Enameled Braiser 3.5 qt",
+              "Silicone Pot Holders (pair)"
+            ],
+            "latestReview": "Heavy but worth it"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Up to 30% off selected bakeware — this week only",
+            "reviewCount": 1290,
+            "rating": 4.6,
+            "boughtLast24h": 153,
+            "questions": 39,
+            "recommendations": [
+              "Cast Iron Grill Pan",
+              "Enameled Braiser 3.5 qt",
+              "Stainless Steel Stockpot 8 qt",
+              "Silicone Pot Holders (pair)"
+            ],
+            "latestReview": "Perfect bread oven"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Gift cards now available in any amount from $10",
+            "reviewCount": 1294,
+            "rating": 4.8,
+            "boughtLast24h": 235,
+            "questions": 39,
+            "recommendations": [
+              "Cast Iron Grill Pan",
+              "Countertop Grain Mill",
+              "Enameled Braiser 3.5 qt",
+              "Cotton Oven Mitts"
+            ],
+            "latestReview": "Gorgeous colour"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Join Brightfold Rewards and earn points on every order",
+            "reviewCount": 1296,
+            "rating": 4.7,
+            "boughtLast24h": 180,
+            "questions": 40,
+            "recommendations": [
+              "Linen Apron",
+              "Stainless Steel Stockpot 8 qt",
+              "Silicone Pot Holders (pair)",
+              "Enameled Braiser 3.5 qt"
+            ],
+            "latestReview": "Lid knob gets hot"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Free standard shipping on orders over $75",
+            "reviewCount": 1300,
+            "rating": 4.7,
+            "boughtLast24h": 155,
+            "questions": 40,
+            "recommendations": [
+              "Countertop Grain Mill",
+              "Beechwood Spoon Set",
+              "Stoneware Baking Dish",
+              "Enameled Braiser 3.5 qt"
+            ],
+            "latestReview": "Second one for my sister"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "New this week: autumn recipes from the Brightfold test kitchen",
+            "reviewCount": 1302,
+            "rating": 4.7,
+            "boughtLast24h": 186,
+            "questions": 41,
+            "recommendations": [
+              "Cast Iron Grill Pan",
+              "Beechwood Spoon Set",
+              "Enameled Braiser 3.5 qt",
+              "Countertop Grain Mill"
+            ],
+            "latestReview": "Heirloom quality"
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "price": 89,
+            "priceText": "$89.00",
+            "stock": "in_stock",
+            "stockText": "In stock"
+          },
+          "context": {
+            "banner": "Up to 30% off selected bakeware — this week only",
+            "reviewCount": 1306,
+            "rating": 4.6,
+            "boughtLast24h": 189,
+            "questions": 41,
+            "recommendations": [
+              "Stoneware Baking Dish",
+              "Silicone Pot Holders (pair)",
+              "Stainless Steel Stockpot 8 qt",
+              "Countertop Grain Mill"
+            ],
+            "latestReview": "Heavy but worth it"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the price of the Dutch oven changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [],
+          "notes": {}
+        },
+        {
+          "request": "Let me know if it goes out of stock.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [],
+          "notes": {}
+        },
+        {
+          "request": "Tell me if it drops below $80.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $80.",
+          "startPhase": 0,
+          "phase": null
+        }
+      ],
+      "notes": [
+        "A correct watcher reports nothing after the baseline, in any phase, including after the last listed phase."
+      ]
+    },
+    {
+      "id": "sale-window",
+      "number": "4",
+      "title": "Price with a sale window",
+      "path": "s/sale-window/",
+      "extraPaths": [],
+      "urlTemplate": "s/sale-window/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Kestrel Audio product page for \"Kestrel Aria ANC Wireless Headphones\", regular price $199.00. Phase 1 shows a \"coming soon\" sale teaser (no price change). Phases 2–4 apply the \"Autumn Sound Sale\" price $149.00 with \"Was $199.00\" and a \"Sale ends in …\" countdown (computed from load time, so it differs on every load). Phase 5 reverts to $199.00 (\"The Autumn Sound Sale has ended\"). Phase 7 is a one-phase \"Flash deal\" at $159.00, then phase 8 reverts to $199.00.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Current price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        },
+        {
+          "key": "onSale",
+          "label": "A sale price applies"
+        }
+      ],
+      "phaseCount": 9,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "The countdown text (\"Sale ends in …\") is computed from the load time, so it differs on every load within a sale phase.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 199,
+            "priceText": "$199.00",
+            "onSale": false
+          },
+          "context": {
+            "saleName": null,
+            "saleEndsPhase": null,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 199,
+            "priceText": "$199.00",
+            "onSale": false
+          },
+          "context": {
+            "saleName": null,
+            "saleEndsPhase": null,
+            "teaser": true,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 149,
+            "priceText": "$149.00",
+            "onSale": true
+          },
+          "context": {
+            "saleName": "Autumn Sound Sale",
+            "saleEndsPhase": 5,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 149,
+            "priceText": "$149.00",
+            "onSale": true
+          },
+          "context": {
+            "saleName": "Autumn Sound Sale",
+            "saleEndsPhase": 5,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 149,
+            "priceText": "$149.00",
+            "onSale": true
+          },
+          "context": {
+            "saleName": "Autumn Sound Sale",
+            "saleEndsPhase": 5,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 199,
+            "priceText": "$199.00",
+            "onSale": false
+          },
+          "context": {
+            "saleName": null,
+            "saleEndsPhase": null,
+            "teaser": false,
+            "saleEnded": "Autumn Sound Sale"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 199,
+            "priceText": "$199.00",
+            "onSale": false
+          },
+          "context": {
+            "saleName": null,
+            "saleEndsPhase": null,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "price": 159,
+            "priceText": "$159.00",
+            "onSale": true
+          },
+          "context": {
+            "saleName": "Flash deal",
+            "saleEndsPhase": 8,
+            "teaser": false,
+            "saleEnded": null
+          }
+        },
+        {
+          "phase": 8,
+          "startsAt": "t0 + 8 * step",
+          "readable": true,
+          "watched": {
+            "price": 199,
+            "priceText": "$199.00",
+            "onSale": false
+          },
+          "context": {
+            "saleName": null,
+            "saleEndsPhase": null,
+            "teaser": false,
+            "saleEnded": "Flash deal"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the Aria headphones go on sale.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "optional",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            2,
+            7
+          ],
+          "notes": {
+            "5": "The sale ended and the price went back to $199.00.",
+            "8": "The sale ended and the price went back to $199.00."
+          }
+        },
+        {
+          "request": "Tell me if the price drops below $160.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "optional",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            2,
+            7
+          ],
+          "notes": {
+            "5": "The price went back above $160.",
+            "8": "The price went back above $160."
+          }
+        },
+        {
+          "request": "Let me know whenever the price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            2,
+            5,
+            7,
+            8
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's on sale.",
+          "startPhase": 0,
+          "phase": 2
+        },
+        {
+          "condition": "Stop after the sale has ended.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "The countdown text changes on every load within a sale phase and is never a change by itself.",
+        "Phase 1 only adds a teaser banner."
+      ]
+    },
+    {
+      "id": "variants",
+      "number": "5",
+      "title": "Multiple variants",
+      "path": "s/variants/",
+      "extraPaths": [],
+      "urlTemplate": "s/variants/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Lumen Outfitters \"Ridgeline Rain Shell\" with eight colour/size options in an \"All options\" table (colour, size, SKU, price, availability) and a \"From $…\" price at the top. Options change independently: Moss / L drops to $124 in phase 1; Slate / M goes \"Only 2 left\" (phase 2), Out of stock (3), and returns In stock at $119 (5); Moss / S drops to $109 (3), $99 (4), back to $109 (5); Slate / L and Slate / XS go out of stock at various times; Moss / XL drops to $115 (6). \"Watch Slate / M\", \"watch the cheapest\" and \"watch Moss / L\" give different answers.",
+      "watched": [
+        {
+          "key": "slateM_price",
+          "label": "Slate / M price (USD)"
+        },
+        {
+          "key": "slateM_stock",
+          "label": "Slate / M availability"
+        },
+        {
+          "key": "cheapest_price",
+          "label": "Lowest price among available options (USD)"
+        },
+        {
+          "key": "cheapest_variant",
+          "label": "Option with the lowest price"
+        },
+        {
+          "key": "mossL_price",
+          "label": "Moss / L price (USD)"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 129,
+            "slateM_stock": "in_stock",
+            "cheapest_price": 119,
+            "cheapest_variant": "Moss / XL",
+            "mossL_price": 129
+          },
+          "context": {
+            "slateM_stockText": "In stock",
+            "fromPriceText": "$119.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 129,
+            "slateM_stock": "in_stock",
+            "cheapest_price": 119,
+            "cheapest_variant": "Moss / XL",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "In stock",
+            "fromPriceText": "$119.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 129,
+            "slateM_stock": "low",
+            "cheapest_price": 119,
+            "cheapest_variant": "Moss / XL",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "Only 2 left",
+            "fromPriceText": "$119.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "low",
+                "stockText": "Only 2 left"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 129,
+            "slateM_stock": "out_of_stock",
+            "cheapest_price": 109,
+            "cheapest_variant": "Moss / S",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "Out of stock",
+            "fromPriceText": "$109.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 109,
+                "priceText": "$109.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 129,
+            "slateM_stock": "out_of_stock",
+            "cheapest_price": 99,
+            "cheapest_variant": "Moss / S",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "Out of stock",
+            "fromPriceText": "$99.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 99,
+                "priceText": "$99.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 119,
+            "slateM_stock": "in_stock",
+            "cheapest_price": 109,
+            "cheapest_variant": "Moss / S",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "In stock",
+            "fromPriceText": "$109.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 109,
+                "priceText": "$109.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "slateM_price": 119,
+            "slateM_stock": "in_stock",
+            "cheapest_price": 109,
+            "cheapest_variant": "Moss / S",
+            "mossL_price": 124
+          },
+          "context": {
+            "slateM_stockText": "In stock",
+            "fromPriceText": "$109.00",
+            "variants": [
+              {
+                "sku": "RS-SL-XS",
+                "colour": "Slate",
+                "size": "XS",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "out_of_stock",
+                "stockText": "Out of stock"
+              },
+              {
+                "sku": "RS-SL-S",
+                "colour": "Slate",
+                "size": "S",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-M",
+                "colour": "Slate",
+                "size": "M",
+                "price": 119,
+                "priceText": "$119.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-SL-L",
+                "colour": "Slate",
+                "size": "L",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-S",
+                "colour": "Moss",
+                "size": "S",
+                "price": 109,
+                "priceText": "$109.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-M",
+                "colour": "Moss",
+                "size": "M",
+                "price": 129,
+                "priceText": "$129.00",
+                "stock": "low",
+                "stockText": "Only 3 left"
+              },
+              {
+                "sku": "RS-MO-L",
+                "colour": "Moss",
+                "size": "L",
+                "price": 124,
+                "priceText": "$124.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              },
+              {
+                "sku": "RS-MO-XL",
+                "colour": "Moss",
+                "size": "XL",
+                "price": 115,
+                "priceText": "$115.00",
+                "stock": "in_stock",
+                "stockText": "In stock"
+              }
+            ]
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Watch the Slate jacket in size M and tell me about any change in its price or availability.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            3,
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when the cheapest option of this jacket drops below $110.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "4": "Already reported the crossing; mentioning a further move is fine but not required.",
+            "5": "Already reported the crossing; mentioning a further move is fine but not required."
+          }
+        },
+        {
+          "request": "Let me know if the Moss / L price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "report",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            1
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me whenever the lowest price for this jacket changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "report",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            3,
+            4,
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once Slate / M is back in stock after selling out.",
+          "startPhase": 0,
+          "phase": 5
+        },
+        {
+          "condition": "Stop when any option is under $100.",
+          "startPhase": 0,
+          "phase": 4
+        }
+      ],
+      "notes": [
+        "\"Cheapest\" means the lowest price among options that are not out of stock; in this timeline it always equals the \"From\" price."
+      ]
+    },
+    {
+      "id": "listing",
+      "number": "6",
+      "title": "Several products on one listing page",
+      "path": "s/listing/",
+      "extraPaths": [],
+      "urlTemplate": "s/listing/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Northwind Books \"New & Notable in Science Fiction\" listing with 7–8 books. The user watches \"The Glass Orchard\" by Maren Ostrova: $18.99 (phases 0–2), $15.99 from phase 3, \"Temporarily out of stock\" in phase 5 only. Every phase the other books change price or stock, the sort order changes, a new title appears in phase 2, one disappears in phase 4, and phase 4 adds \"The Glass Orchard Companion\" by Delia Frane at $9.99 — a different book with the same words in its title.",
+      "watched": [
+        {
+          "key": "glassPrice",
+          "label": "\"The Glass Orchard\" by Maren Ostrova — price (USD)"
+        },
+        {
+          "key": "glassPriceText",
+          "label": "\"The Glass Orchard\" — price as displayed"
+        },
+        {
+          "key": "glassStock",
+          "label": "\"The Glass Orchard\" — availability"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 18.99,
+            "glassPriceText": "$18.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "The Long Quiet of Europa (Tamsin Vey) $24.00",
+              "The Glass Orchard (Maren Ostrova) $18.99",
+              "Salt and Starlight (Idris Kallan) $16.99",
+              "The Cartographer's Moon (Priya Halden) $18.99",
+              "Ninefold Harbor (Oren Blackwood) $21.50",
+              "A Map of Falling Cities (Jun Aradi) $27.00",
+              "Clockwork Tides (Lina Marchetti) $13.99"
+            ]
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 18.99,
+            "glassPriceText": "$18.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "The Glass Orchard (Maren Ostrova) $18.99",
+              "The Long Quiet of Europa (Tamsin Vey) $24.00",
+              "Salt and Starlight (Idris Kallan) $14.99",
+              "Ninefold Harbor (Oren Blackwood) $21.50 [out of stock]",
+              "The Cartographer's Moon (Priya Halden) $18.99",
+              "Clockwork Tides (Lina Marchetti) $13.99",
+              "A Map of Falling Cities (Jun Aradi) $27.00"
+            ]
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 18.99,
+            "glassPriceText": "$18.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "Signal Lost at Tarn (Ezra Moll) $22.00",
+              "The Glass Orchard (Maren Ostrova) $18.99",
+              "The Long Quiet of Europa (Tamsin Vey) $22.00",
+              "Salt and Starlight (Idris Kallan) $14.99",
+              "The Cartographer's Moon (Priya Halden) $18.99",
+              "A Map of Falling Cities (Jun Aradi) $27.00",
+              "Ninefold Harbor (Oren Blackwood) $21.50 [out of stock]",
+              "Clockwork Tides (Lina Marchetti) $13.99"
+            ]
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 15.99,
+            "glassPriceText": "$15.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "The Glass Orchard (Maren Ostrova) $15.99",
+              "Signal Lost at Tarn (Ezra Moll) $22.00",
+              "The Cartographer's Moon (Priya Halden) $16.49",
+              "The Long Quiet of Europa (Tamsin Vey) $22.00",
+              "Salt and Starlight (Idris Kallan) $14.99",
+              "A Map of Falling Cities (Jun Aradi) $27.00",
+              "Ninefold Harbor (Oren Blackwood) $21.50 [out of stock]",
+              "Clockwork Tides (Lina Marchetti) $13.99"
+            ]
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 15.99,
+            "glassPriceText": "$15.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "The Glass Orchard Companion (Delia Frane) $9.99",
+              "The Glass Orchard (Maren Ostrova) $15.99",
+              "Signal Lost at Tarn (Ezra Moll) $22.00",
+              "The Long Quiet of Europa (Tamsin Vey) $22.00",
+              "The Cartographer's Moon (Priya Halden) $16.49",
+              "Salt and Starlight (Idris Kallan) $14.99",
+              "A Map of Falling Cities (Jun Aradi) $24.30",
+              "Ninefold Harbor (Oren Blackwood) $21.50 [out of stock]"
+            ]
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 15.99,
+            "glassPriceText": "$15.99",
+            "glassStock": "out_of_stock"
+          },
+          "context": {
+            "glassStockText": "Temporarily out of stock",
+            "items": [
+              "Signal Lost at Tarn (Ezra Moll) $22.00",
+              "The Glass Orchard Companion (Delia Frane) $9.99",
+              "The Long Quiet of Europa (Tamsin Vey) $22.00",
+              "The Glass Orchard (Maren Ostrova) $15.99 [out of stock]",
+              "The Cartographer's Moon (Priya Halden) $16.49",
+              "A Map of Falling Cities (Jun Aradi) $24.30",
+              "Salt and Starlight (Idris Kallan) $16.99",
+              "Ninefold Harbor (Oren Blackwood) $21.50"
+            ]
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "glassPrice": 15.99,
+            "glassPriceText": "$15.99",
+            "glassStock": "in_stock"
+          },
+          "context": {
+            "glassStockText": "In stock",
+            "items": [
+              "The Glass Orchard (Maren Ostrova) $15.99",
+              "The Glass Orchard Companion (Delia Frane) $9.99",
+              "Signal Lost at Tarn (Ezra Moll) $19.80",
+              "The Cartographer's Moon (Priya Halden) $18.99",
+              "The Long Quiet of Europa (Tamsin Vey) $22.00",
+              "Salt and Starlight (Idris Kallan) $16.99",
+              "Ninefold Harbor (Oren Blackwood) $21.50",
+              "A Map of Falling Cities (Jun Aradi) $24.30"
+            ]
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if The Glass Orchard by Maren Ostrova gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me about any price or availability change for The Glass Orchard.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            3,
+            5,
+            6
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when The Glass Orchard costs less than $16.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $16.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "\"The Cartographer's Moon\" has the same $18.99 price in phases 0–2.",
+        "Position changes of the watched book are not a change.",
+        "Each book card is li.book with h3.book-title, .book-author, .book-price and .book-avail."
+      ]
+    },
+    {
+      "id": "format-change",
+      "number": "7",
+      "title": "Format change without value change",
+      "path": "s/format-change/",
+      "extraPaths": [],
+      "urlTemplate": "s/format-change/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Harbor & Pine Home (UK) product page for a \"Washed Linen Duvet Cover, King\". The price is £51.77 in phases 0–4 but rendered differently each phase: \"£51.77\", \"GBP 51.77\", \"51.77 GBP\", \"£51.770\", then \"£51.77\" with the pence in a separate small superscript span. Phase 5 is a real change to \"£46.59\" (with \"Was £51.77 · Save 10%\"), and phase 6 re-formats the new price as \"GBP 46.59\".",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (GBP, numeric)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 51.77,
+            "priceText": "£51.77"
+          },
+          "context": {
+            "format": "symbol",
+            "wasText": null
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 51.77,
+            "priceText": "GBP 51.77"
+          },
+          "context": {
+            "format": "code-prefix",
+            "wasText": null
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 51.77,
+            "priceText": "51.77 GBP"
+          },
+          "context": {
+            "format": "code-suffix",
+            "wasText": null
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 51.77,
+            "priceText": "£51.770"
+          },
+          "context": {
+            "format": "three-decimals",
+            "wasText": null
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 51.77,
+            "priceText": "£51.77"
+          },
+          "context": {
+            "format": "split-markup",
+            "wasText": null
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 46.59,
+            "priceText": "£46.59"
+          },
+          "context": {
+            "format": "symbol",
+            "wasText": "£51.77"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 46.59,
+            "priceText": "GBP 46.59"
+          },
+          "context": {
+            "format": "code-prefix",
+            "wasText": "GBP 51.77"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the duvet cover price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Let me know when it's under £50.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under £50.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "Phases 1–4 and 6 are formatting-only changes: a correct watcher reports nothing."
+      ]
+    },
+    {
+      "id": "zh-price",
+      "number": "8",
+      "title": "Chinese-language page with CNY prices",
+      "path": "s/zh-price/",
+      "extraPaths": [],
+      "urlTemplate": "s/zh-price/?t0={t0}&step={step}",
+      "lang": "zh-CN",
+      "description": "Chinese-language (zh-CN) product page of the fictional store 栖木家居 for an oak standing desk (橡木电动升降书桌 1.4m). 售价 ¥1,299.00 → ¥1,299.00 → ¥1,199.00 (有货) → ¥1,199.00 缺货 with \"预计 <t0 + 8 days> 到货\" → 缺货 → ¥1,099.00 有货 → ¥1,099.00 仅剩 2 件. A static 参考价 ¥1,599.00 is shown struck through in every phase.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "售价 (CNY, numeric)"
+        },
+        {
+          "key": "priceText",
+          "label": "售价 as displayed"
+        },
+        {
+          "key": "stock",
+          "label": "Availability (in_stock | low | out_of_stock)"
+        },
+        {
+          "key": "stockText",
+          "label": "Availability as displayed"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 1299,
+            "priceText": "¥1,299.00",
+            "stock": "in_stock",
+            "stockText": "有货"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 1299,
+            "priceText": "¥1,299.00",
+            "stock": "in_stock",
+            "stockText": "有货"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 1199,
+            "priceText": "¥1,199.00",
+            "stock": "in_stock",
+            "stockText": "有货"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 1199,
+            "priceText": "¥1,199.00",
+            "stock": "out_of_stock",
+            "stockText": "缺货"
+          },
+          "context": {
+            "restockOffsetDays": 8,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 1199,
+            "priceText": "¥1,199.00",
+            "stock": "out_of_stock",
+            "stockText": "缺货"
+          },
+          "context": {
+            "restockOffsetDays": 8,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 1099,
+            "priceText": "¥1,099.00",
+            "stock": "in_stock",
+            "stockText": "有货"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "listPriceText": "¥1,599.00"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 1099,
+            "priceText": "¥1,099.00",
+            "stock": "low",
+            "stockText": "仅剩 2 件"
+          },
+          "context": {
+            "restockOffsetDays": null,
+            "listPriceText": "¥1,599.00"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "这张书桌降价了就告诉我。 (Tell me when this desk gets cheaper.)",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when the desk costs less than ¥1,200.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            2
+          ],
+          "notes": {
+            "5": "Already reported the crossing; mentioning a further move is fine but not required."
+          }
+        },
+        {
+          "request": "缺货或者重新有货的时候通知我。 (Notify me when it goes out of stock or comes back in stock.)",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            3,
+            5
+          ],
+          "notes": {
+            "6": "Low stock (仅剩 2 件) is still in stock; mentioning it is fine."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "降到 ¥1,100 以下就不用再看了。 (Stop once it is below ¥1,100.)",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "Prices use a comma thousands separator: \"¥1,199.00\" is one thousand one hundred ninety-nine yuan.",
+        "The page chrome is Chinese; the fixture footer is English."
+      ]
+    },
+    {
+      "id": "job-board",
+      "number": "9",
+      "title": "New items list (job board)",
+      "path": "s/job-board/",
+      "extraPaths": [],
+      "urlTemplate": "s/job-board/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Quillstack Jobs \"Engineering jobs in Europe\" board, newest first, with title, company, location, salary, tags and \"Posted … ago (<UTC time>)\". Phase 1 adds a Python job in Berlin; phase 2 adds an \"Embedded Rust Engineer\" in Hamburg and edits a salary; phase 3 adds \"Rust Systems Engineer\" at Lattice Grid Energy in Berlin; phase 4 removes a Berlin frontend job and renames the Hamburg job; phase 5 adds \"Staff Rust Engineer\" in Berlin (Hybrid); phase 6 adds a Berlin data engineering job and adds a salary to the phase-3 Rust job. Baseline traps: a Rust job in Munich, a remote-EU Rust job, and a Berlin platform job that says \"Experience with Rust is a plus\".",
+      "watched": [
+        {
+          "key": "listings",
+          "label": "All listings, newest first (id: title | company | location | salary)"
+        },
+        {
+          "key": "rustBerlinIds",
+          "label": "Listings that are Rust jobs in Berlin"
+        },
+        {
+          "key": "count",
+          "label": "Number of listings"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €80,000–95,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4093: Frontend Engineer (React) | Pallas Health | Berlin, Germany | €65,000–80,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [],
+            "count": 8
+          },
+          "context": {
+            "newestId": "QJ-4101"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €80,000–95,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4093: Frontend Engineer (React) | Pallas Health | Berlin, Germany | €65,000–80,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [],
+            "count": 9
+          },
+          "context": {
+            "newestId": "QJ-4110"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4114: Embedded Rust Engineer | Haldor Marine | Hamburg, Germany | €78,000–92,000",
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €85,000–100,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4093: Frontend Engineer (React) | Pallas Health | Berlin, Germany | €65,000–80,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [],
+            "count": 10
+          },
+          "context": {
+            "newestId": "QJ-4114"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4117: Rust Systems Engineer | Lattice Grid Energy | Berlin, Germany | Salary not disclosed",
+              "QJ-4114: Embedded Rust Engineer | Haldor Marine | Hamburg, Germany | €78,000–92,000",
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €85,000–100,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4093: Frontend Engineer (React) | Pallas Health | Berlin, Germany | €65,000–80,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [
+              "QJ-4117"
+            ],
+            "count": 11
+          },
+          "context": {
+            "newestId": "QJ-4117"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4117: Rust Systems Engineer | Lattice Grid Energy | Berlin, Germany | Salary not disclosed",
+              "QJ-4114: Embedded Rust Engineer (Hybrid) | Haldor Marine | Hamburg, Germany | €78,000–92,000",
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €85,000–100,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [
+              "QJ-4117"
+            ],
+            "count": 10
+          },
+          "context": {
+            "newestId": "QJ-4117"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4123: Staff Rust Engineer | Quarry Labs | Berlin, Germany (Hybrid) | €110,000–130,000",
+              "QJ-4117: Rust Systems Engineer | Lattice Grid Energy | Berlin, Germany | Salary not disclosed",
+              "QJ-4114: Embedded Rust Engineer (Hybrid) | Haldor Marine | Hamburg, Germany | €78,000–92,000",
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €85,000–100,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [
+              "QJ-4123",
+              "QJ-4117"
+            ],
+            "count": 11
+          },
+          "context": {
+            "newestId": "QJ-4123"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "listings": [
+              "QJ-4126: Data Engineer | Solenne Retail | Berlin, Germany | €70,000–84,000",
+              "QJ-4123: Staff Rust Engineer | Quarry Labs | Berlin, Germany (Hybrid) | €110,000–130,000",
+              "QJ-4117: Rust Systems Engineer | Lattice Grid Energy | Berlin, Germany | €90,000–110,000",
+              "QJ-4114: Embedded Rust Engineer (Hybrid) | Haldor Marine | Hamburg, Germany | €78,000–92,000",
+              "QJ-4110: Backend Engineer (Python) | Kiteline Travel | Berlin, Germany | €70,000–85,000",
+              "QJ-4101: Senior Go Engineer | Fernhill Logistics | Berlin, Germany | €85,000–100,000",
+              "QJ-4098: Rust Developer | Tessellate Robotics | Munich, Germany | €75,000–90,000",
+              "QJ-4090: Rust Engineer | Corvid Data | Remote (EU) | €85,000–105,000",
+              "QJ-4087: Site Reliability Engineer | Marlowe Pay | Amsterdam, Netherlands | €70,000–88,000",
+              "QJ-4082: Platform Engineer | Brightwater Games | Berlin, Germany | €72,000–86,000",
+              "QJ-4077: Backend Engineer (Kotlin) | Nordlys Mobility | Oslo, Norway | NOK 850,000–1,000,000",
+              "QJ-4071: Data Scientist | Umbra Analytics | Berlin, Germany | €68,000–82,000"
+            ],
+            "rustBerlinIds": [
+              "QJ-4123",
+              "QJ-4117"
+            ],
+            "count": 12
+          },
+          "context": {
+            "newestId": "QJ-4126"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when a Rust job in Berlin appears.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            3,
+            5
+          ],
+          "notes": {
+            "6": "An already-reported Rust job in Berlin was edited (salary added)."
+          }
+        },
+        {
+          "request": "Tell me about any new job posted in Berlin.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "report",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            1,
+            3,
+            5,
+            6
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Let me know about any new job postings.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "report",
+            "report",
+            "report",
+            "skip",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            1,
+            2,
+            3,
+            5,
+            6
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop after the first Rust job in Berlin shows up.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "Removals (phase 4) and edits are not new postings.",
+        "\"Posted N minutes ago\" and \"New\" badges change with the load time.",
+        "Each posting is li.job[data-job-id] with .job-title, .job-company, .job-location, .job-salary."
+      ]
+    },
+    {
+      "id": "status-page",
+      "number": "10",
+      "title": "Service status page",
+      "path": "s/status-page/",
+      "extraPaths": [],
+      "urlTemplate": "s/status-page/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Veltrane Cloud status page with six components (API, Dashboard, Webhooks, Object Storage, Authentication, CDN), an overall banner, 60-day uptime bars, a scheduled-maintenance notice (present in every phase, not an incident) and past incidents. Webhooks: Operational → Operational → Degraded performance → Major outage → Partial outage → Degraded performance → Operational → Operational. API is \"Degraded performance\" in phase 3 only. The incident \"Delayed and failing webhook deliveries\" gains an update each phase (Investigating, Identified, Monitoring, Monitoring, Resolved) and moves to \"Past incidents\" in phase 7.",
+      "watched": [
+        {
+          "key": "overall",
+          "label": "Overall status banner"
+        },
+        {
+          "key": "webhooks",
+          "label": "Webhooks component status"
+        },
+        {
+          "key": "api",
+          "label": "API component status"
+        },
+        {
+          "key": "allOperational",
+          "label": "Every component is operational"
+        },
+        {
+          "key": "incidentStatus",
+          "label": "Latest incident update status"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "overall": "All Systems Operational",
+            "webhooks": "operational",
+            "api": "operational",
+            "allOperational": true,
+            "incidentStatus": null
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "operational",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": false,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "overall": "All Systems Operational",
+            "webhooks": "operational",
+            "api": "operational",
+            "allOperational": true,
+            "incidentStatus": null
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "operational",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": false,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "overall": "Degraded Performance",
+            "webhooks": "degraded",
+            "api": "operational",
+            "allOperational": false,
+            "incidentStatus": "Investigating"
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "degraded",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": true,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "overall": "Major System Outage",
+            "webhooks": "major",
+            "api": "degraded",
+            "allOperational": false,
+            "incidentStatus": "Identified"
+          },
+          "context": {
+            "components": {
+              "api": "degraded",
+              "dashboard": "operational",
+              "webhooks": "major",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": true,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "overall": "Partial System Outage",
+            "webhooks": "partial",
+            "api": "operational",
+            "allOperational": false,
+            "incidentStatus": "Monitoring"
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "partial",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": true,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "overall": "Degraded Performance",
+            "webhooks": "degraded",
+            "api": "operational",
+            "allOperational": false,
+            "incidentStatus": "Monitoring"
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "degraded",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": true,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "overall": "All Systems Operational",
+            "webhooks": "operational",
+            "api": "operational",
+            "allOperational": true,
+            "incidentStatus": "Resolved"
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "operational",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": false,
+            "incidentInPast": false
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "overall": "All Systems Operational",
+            "webhooks": "operational",
+            "api": "operational",
+            "allOperational": true,
+            "incidentStatus": "Resolved"
+          },
+          "context": {
+            "components": {
+              "api": "operational",
+              "dashboard": "operational",
+              "webhooks": "operational",
+              "storage": "operational",
+              "auth": "operational",
+              "cdn": "operational"
+            },
+            "incidentActive": false,
+            "incidentInPast": true
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me whenever the Webhooks status changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "report",
+            "report",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Let me know if the API is affected.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "4": "The API is operational again."
+          }
+        },
+        {
+          "request": "Alert me if there is a major outage.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "4": "No longer a major outage (partial outage, recovering)."
+          }
+        },
+        {
+          "request": "Tell me when everything is fully operational again.",
+          "startPhase": 2,
+          "expected": [
+            "n/a",
+            "n/a",
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            6
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once everything is operational again (after the incident).",
+          "startPhase": 0,
+          "phase": 6
+        }
+      ],
+      "notes": [
+        "Phase 1 is identical to phase 0.",
+        "Phase 7 only moves the resolved incident into \"Past incidents\".",
+        "The \"Page generated …\" timestamp changes on every load.",
+        "Each component is li.component[data-component] with .c-status."
+      ]
+    },
+    {
+      "id": "event-tickets",
+      "number": "11",
+      "title": "Event tickets / availability",
+      "path": "s/event-tickets/",
+      "extraPaths": [],
+      "urlTemplate": "s/event-tickets/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Tidewater Live page for \"The Lantern Quartet — Autumn Tour\" with a tour-dates table (date = t0 + 14/15/16/17 days, city, venue, price, seats left). Seats fall every phase. Portsmere: 120, 96, 71, 50, 32, 12, 5, sold out. Aldbury Cross: 45, 22, 8, sold out (phase 3) … 4 returned seats (phase 6) … sold out (7). Wrenfield: 200 → 101. A new date, Halloway Bay, is added in phase 4 with 250 seats.",
+      "watched": [
+        {
+          "key": "portsmere",
+          "label": "Portsmere seats left (null = not listed)"
+        },
+        {
+          "key": "aldbury",
+          "label": "Aldbury Cross seats left"
+        },
+        {
+          "key": "wrenfield",
+          "label": "Wrenfield seats left"
+        },
+        {
+          "key": "halloway",
+          "label": "Halloway Bay seats left (added later)"
+        },
+        {
+          "key": "dateCount",
+          "label": "Number of tour dates listed"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 120,
+            "aldbury": 45,
+            "wrenfield": 200,
+            "halloway": null,
+            "dateCount": 3
+          },
+          "context": {
+            "portsmereText": "120 seats left",
+            "aldburyText": "45 seats left",
+            "wrenfieldText": "200 seats left",
+            "hallowayText": null,
+            "returned": []
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 96,
+            "aldbury": 22,
+            "wrenfield": 188,
+            "halloway": null,
+            "dateCount": 3
+          },
+          "context": {
+            "portsmereText": "96 seats left",
+            "aldburyText": "22 seats left",
+            "wrenfieldText": "188 seats left",
+            "hallowayText": null,
+            "returned": []
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 71,
+            "aldbury": 8,
+            "wrenfield": 175,
+            "halloway": null,
+            "dateCount": 3
+          },
+          "context": {
+            "portsmereText": "71 seats left",
+            "aldburyText": "Only 8 left",
+            "wrenfieldText": "175 seats left",
+            "hallowayText": null,
+            "returned": []
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 50,
+            "aldbury": 0,
+            "wrenfield": 160,
+            "halloway": null,
+            "dateCount": 3
+          },
+          "context": {
+            "portsmereText": "50 seats left",
+            "aldburyText": "Sold out",
+            "wrenfieldText": "160 seats left",
+            "hallowayText": null,
+            "returned": []
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 32,
+            "aldbury": 0,
+            "wrenfield": 149,
+            "halloway": 250,
+            "dateCount": 4
+          },
+          "context": {
+            "portsmereText": "32 seats left",
+            "aldburyText": "Sold out",
+            "wrenfieldText": "149 seats left",
+            "hallowayText": "250 seats left",
+            "returned": []
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 12,
+            "aldbury": 0,
+            "wrenfield": 130,
+            "halloway": 238,
+            "dateCount": 4
+          },
+          "context": {
+            "portsmereText": "Only 12 left",
+            "aldburyText": "Sold out",
+            "wrenfieldText": "130 seats left",
+            "hallowayText": "238 seats left",
+            "returned": []
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 5,
+            "aldbury": 4,
+            "wrenfield": 118,
+            "halloway": 221,
+            "dateCount": 4
+          },
+          "context": {
+            "portsmereText": "Only 5 left",
+            "aldburyText": "Only 4 left",
+            "wrenfieldText": "118 seats left",
+            "hallowayText": "221 seats left",
+            "returned": [
+              "aldbury"
+            ]
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "portsmere": 0,
+            "aldbury": 0,
+            "wrenfield": 101,
+            "halloway": 205,
+            "dateCount": 4
+          },
+          "context": {
+            "portsmereText": "Sold out",
+            "aldburyText": "Sold out",
+            "wrenfieldText": "101 seats left",
+            "hallowayText": "205 seats left",
+            "returned": []
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the Aldbury Cross show sells out.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "optional",
+            "optional"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "6": "4 returned seats were released.",
+            "7": "Sold out again after the returned seats; the first sell-out was already reported."
+          }
+        },
+        {
+          "request": "Let me know if they add a new tour date.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            4
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me if tickets for the Aldbury Cross show become available again.",
+          "startPhase": 3,
+          "expected": [
+            "n/a",
+            "n/a",
+            "n/a",
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            6
+          ],
+          "notes": {
+            "7": "Sold out again."
+          }
+        },
+        {
+          "request": "Tell me when fewer than 20 seats are left for Portsmere.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "optional"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {
+            "7": "Portsmere is now sold out."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once a new date is announced.",
+          "startPhase": 0,
+          "phase": 4
+        },
+        {
+          "condition": "Stop when the Portsmere show sells out.",
+          "startPhase": 0,
+          "phase": 7
+        }
+      ],
+      "notes": [
+        "Falling seat counts alone are not worth reporting for these requests.",
+        "Each tour date is tr[data-show] with .show-city and .seats."
+      ]
+    },
+    {
+      "id": "late-render",
+      "number": "12",
+      "title": "Content loaded late",
+      "path": "s/late-render/",
+      "extraPaths": [],
+      "urlTemplate": "s/late-render/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Kestrel Audio product page for the \"Kestrel Pebble Bluetooth Speaker\" whose price, stock and buy button are rendered by script 4–6 seconds after load; until then skeleton placeholders (grey shimmering bars) sit in their place. The delay is deterministic: 4000 + floor(rng(id, seed, \"delay\", rawPhase) × 2001) ms. Price: $79.00, $79.00, $69.00, $69.00, $64.00. Related products ($199.00, $12.00) are visible immediately.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (USD), rendered 4–6 s after load"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 5,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "Price, stock and the buy button render 4–6 s after load (skeleton placeholders before that): delay = 4000 + floor(rng(id, seed, \"delay\", rawPhase) * 2001) ms.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 69,
+            "priceText": "$69.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 69,
+            "priceText": "$69.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 64,
+            "priceText": "$64.00"
+          },
+          "context": {}
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the Pebble speaker gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "report"
+          ],
+          "reportPhases": [
+            2,
+            4
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me if it goes below $65.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report"
+          ],
+          "reportPhases": [
+            4
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $65.",
+          "startPhase": 0,
+          "phase": 4
+        }
+      ],
+      "notes": [
+        "A watcher that reads before the delay sees no price at all; it must wait or report that it could not read the value, never report a change."
+      ]
+    },
+    {
+      "id": "click-to-reveal",
+      "number": "13a",
+      "title": "Price behind a click (not in the DOM before the click)",
+      "path": "s/click-to-reveal/",
+      "extraPaths": [],
+      "urlTemplate": "s/click-to-reveal/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Brightfold Kitchen product page for the \"Stoneheart Countertop Grain Mill\". The price is only in a \"Show price details\" disclosure. Decision: the details panel is NOT in the DOM before the click (script inserts it on click and removes it on the next click), so reading requires clicking. Item price: $249.00, $249.00, $229.00, $229.00, $219.00, $219.00; the panel also shows $12.00 delivery and an estimated total.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Item price (USD), inside \"Show price details\""
+        },
+        {
+          "key": "priceText",
+          "label": "Item price as displayed"
+        }
+      ],
+      "phaseCount": 6,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "The price-details panel is NOT in the DOM until the \"Show price details\" button is clicked (it is inserted by script on click and removed again on the next click).",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 249,
+            "priceText": "$249.00"
+          },
+          "context": {
+            "totalText": "$261.00"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 249,
+            "priceText": "$249.00"
+          },
+          "context": {
+            "totalText": "$261.00"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 229,
+            "priceText": "$229.00"
+          },
+          "context": {
+            "totalText": "$241.00"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 229,
+            "priceText": "$229.00"
+          },
+          "context": {
+            "totalText": "$241.00"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 219,
+            "priceText": "$219.00"
+          },
+          "context": {
+            "totalText": "$231.00"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 219,
+            "priceText": "$219.00"
+          },
+          "context": {
+            "totalText": "$231.00"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the grain mill's price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            4
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when it's under $225.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            4
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $225.",
+          "startPhase": 0,
+          "phase": 4
+        }
+      ],
+      "notes": [
+        "Button: #toggle-price-details (aria-expanded). Panel: #price-details, price in #product-price, total in #price-total."
+      ]
+    },
+    {
+      "id": "tabbed-price",
+      "number": "13b",
+      "title": "Price in a secondary tab (in the DOM but hidden before the click)",
+      "path": "s/tabbed-price/",
+      "extraPaths": [],
+      "urlTemplate": "s/tabbed-price/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Harbor & Pine Home product page for a \"Walnut Bedside Table\" whose price lives in a secondary \"Price & delivery\" tab. Decision: the tab panel IS in the DOM from the start but has the hidden attribute until the tab is clicked (textContent includes the price; innerText and the accessibility tree do not). Price: $189.00 (phases 0–2), $169.00 (3–4), $159.00 (5). The same panel shows a static $49.00 white-glove delivery fee.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (USD), in the \"Price & delivery\" tab"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 6,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "The \"Price & delivery\" tab panel IS in the DOM from the start but carries the hidden attribute until its tab is clicked: textContent contains the price, innerText and the accessibility tree do not.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 189,
+            "priceText": "$189.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 189,
+            "priceText": "$189.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 189,
+            "priceText": "$189.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 169,
+            "priceText": "$169.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 169,
+            "priceText": "$169.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 159,
+            "priceText": "$159.00"
+          },
+          "context": {}
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the bedside table gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "report"
+          ],
+          "reportPhases": [
+            3,
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when it's under $170.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "optional"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "5": "Already reported the crossing; mentioning a further move is fine but not required."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $170.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "Tab: #tab-pricing. Panel: #panel-pricing, price in #product-price."
+      ]
+    },
+    {
+      "id": "page-gone",
+      "number": "14",
+      "title": "Page disappears, then moves",
+      "path": "s/page-gone/",
+      "extraPaths": [
+        "s/page-gone/new/"
+      ],
+      "urlTemplate": "s/page-gone/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Northwind Books page for \"Atlas of Quiet Places (Hardcover)\" at s/page-gone/. Phases 0–2: normal product page ($42.00, $42.00, $38.00). Phases 3–4: \"This product is no longer available\". Phase 5: \"This product has moved\" with a \"Go to the new page\" link to s/page-gone/new/ (query string kept), where the revised edition costs $36.00. Phases 6–7: the original URL immediately redirects (location.replace) to the new URL; the new page shows $36.00 in phase 6 and $34.00 in phase 7. Before phase 5 the new URL shows a 404-style \"We couldn't find that page\".",
+      "watched": [
+        {
+          "key": "status",
+          "label": "Original URL shows: available | gone | moved (notice + link) | redirect (script redirect to the new URL)"
+        },
+        {
+          "key": "price",
+          "label": "Current price (USD) wherever the product now lives (null when discontinued)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "The new URL s/page-gone/new/ shows a 404-style \"page not found\" page before phase 5 and the revised edition from phase 5 on. From phase 6 the original URL immediately redirects there with location.replace, keeping the query string. GitHub Pages returns HTTP 200 for every state.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "status": "available",
+            "price": 42,
+            "priceText": "$42.00"
+          },
+          "context": {
+            "newUrlShows": "not_found",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "status": "available",
+            "price": 42,
+            "priceText": "$42.00"
+          },
+          "context": {
+            "newUrlShows": "not_found",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "status": "available",
+            "price": 38,
+            "priceText": "$38.00"
+          },
+          "context": {
+            "newUrlShows": "not_found",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "status": "gone",
+            "price": null,
+            "priceText": null
+          },
+          "context": {
+            "newUrlShows": "not_found",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "status": "gone",
+            "price": null,
+            "priceText": null
+          },
+          "context": {
+            "newUrlShows": "not_found",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "status": "moved",
+            "price": 36,
+            "priceText": "$36.00"
+          },
+          "context": {
+            "newUrlShows": "product",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "status": "redirect",
+            "price": 36,
+            "priceText": "$36.00"
+          },
+          "context": {
+            "newUrlShows": "product",
+            "newUrl": "s/page-gone/new/"
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "status": "redirect",
+            "price": 34,
+            "priceText": "$34.00"
+          },
+          "context": {
+            "newUrlShows": "product",
+            "newUrl": "s/page-gone/new/"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the Atlas of Quiet Places gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "report",
+            "skip",
+            "report",
+            "optional",
+            "report"
+          ],
+          "reportPhases": [
+            2,
+            3,
+            5,
+            7
+          ],
+          "notes": {
+            "3": "The product was discontinued: tell the user it is no longer available (not a price).",
+            "5": "The product moved to a new page (revised edition) that costs $36.00, below the last seen $38.00.",
+            "6": "The old URL now redirects to the same new page; price unchanged."
+          }
+        },
+        {
+          "request": "Tell me if this book stops being available.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip",
+            "optional",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {
+            "5": "It is available again at a new URL (revised edition)."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop watching if the product is discontinued.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "GitHub Pages returns HTTP 200 in every state; \"gone\" and \"moved\" are page content, and the redirect is client-side.",
+        "Reading the phase-5 price requires following the link."
+      ]
+    },
+    {
+      "id": "login-wall",
+      "number": "15",
+      "title": "Login wall / interstitial",
+      "path": "s/login-wall/",
+      "extraPaths": [],
+      "urlTemplate": "s/login-wall/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Orrisfield Supply Co. (trade supplier) product page for a \"Pre-seasoned Cast Iron Skillet, 12 in\". In phases 2, 3 and 6 the buy box shows \"Sign in to see prices\" (no price anywhere in the DOM; related products say \"Sign in for price\"; the Sign in button only shows \"Sign-in is disabled on this test fixture\"). Otherwise the price is visible: $44.00 (0, 1, 4), $39.00 (5, 7).",
+      "watched": [
+        {
+          "key": "access",
+          "label": "visible | login_wall (\"Sign in to see prices\", no price anywhere in the DOM)"
+        },
+        {
+          "key": "price",
+          "label": "Price (USD); null when hidden behind the login wall"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "access": "visible",
+            "price": 44,
+            "priceText": "$44.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "access": "visible",
+            "price": 44,
+            "priceText": "$44.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": false,
+          "watched": {
+            "access": "login_wall",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": false,
+          "watched": {
+            "access": "login_wall",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "access": "visible",
+            "price": 44,
+            "priceText": "$44.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "access": "visible",
+            "price": 39,
+            "priceText": "$39.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": false,
+          "watched": {
+            "access": "login_wall",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "access": "visible",
+            "price": 39,
+            "priceText": "$39.00"
+          },
+          "context": {}
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the skillet gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "unreadable",
+            "unreadable",
+            "skip",
+            "report",
+            "unreadable",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me whenever the skillet's price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "unreadable",
+            "unreadable",
+            "skip",
+            "report",
+            "unreadable",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $40.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "During the wall the watcher must say it could not read the price, never report a change (and never treat \"no price\" as $0).",
+        "Phase 4 shows the same $44.00 as before the wall: no change. Phase 7 shows the same $39.00 as phase 5."
+      ]
+    },
+    {
+      "id": "intermittent-error",
+      "number": "16",
+      "title": "Intermittent error",
+      "path": "s/intermittent-error/",
+      "extraPaths": [],
+      "urlTemplate": "s/intermittent-error/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Lumen Outfitters product page for a \"Summit Down Vest\" that deterministically renders a styled \"503 Service Temporarily Unavailable\" error page instead of the product in phases 1, 4, 5 and 8 (with a changing reference number). Readable phases: $149.00 (0, 2, 3), then $129.00 (6, 7, 9) — the price changes while the page is failing.",
+      "watched": [
+        {
+          "key": "status",
+          "label": "ok | error (503 page instead of the product)"
+        },
+        {
+          "key": "price",
+          "label": "Price (USD); null on error phases"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 10,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "The error page is rendered by script; the HTTP status is still 200 (GitHub Pages cannot vary it).",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 149,
+            "priceText": "$149.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": false,
+          "watched": {
+            "status": "error",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 149,
+            "priceText": "$149.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 149,
+            "priceText": "$149.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": false,
+          "watched": {
+            "status": "error",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": false,
+          "watched": {
+            "status": "error",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 129,
+            "priceText": "$129.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 129,
+            "priceText": "$129.00"
+          },
+          "context": {}
+        },
+        {
+          "phase": 8,
+          "startsAt": "t0 + 8 * step",
+          "readable": false,
+          "watched": {
+            "status": "error",
+            "price": null,
+            "priceText": null
+          },
+          "context": {}
+        },
+        {
+          "phase": 9,
+          "startsAt": "t0 + 9 * step",
+          "readable": true,
+          "watched": {
+            "status": "ok",
+            "price": 129,
+            "priceText": "$129.00"
+          },
+          "context": {}
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the Summit Down Vest price drops.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "unreadable",
+            "skip",
+            "skip",
+            "unreadable",
+            "unreadable",
+            "report",
+            "skip",
+            "unreadable",
+            "skip"
+          ],
+          "reportPhases": [
+            6
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me if the vest's price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "unreadable",
+            "skip",
+            "skip",
+            "unreadable",
+            "unreadable",
+            "report",
+            "skip",
+            "unreadable",
+            "skip"
+          ],
+          "reportPhases": [
+            6
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it costs less than $130.",
+          "startPhase": 0,
+          "phase": 6
+        }
+      ],
+      "notes": [
+        "The HTTP status is 200 even on error phases; the error is page content.",
+        "Phase 6 is the first readable phase after a two-phase outage and already has the new price."
+      ]
+    },
+    {
+      "id": "live-ticker",
+      "number": "17",
+      "title": "Live ticker (updates every 3 seconds)",
+      "path": "s/live-ticker/",
+      "extraPaths": [],
+      "urlTemplate": "s/live-ticker/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Fernmarket quote page for the fictional stock \"Quenwick Robotics Inc. (QWKR)\" that updates live every 3 seconds (the only page that re-renders on its own). price(t) = round2(LEVELS[phase(t)] + 0.40 × (2u − 1)) where u = rng(\"live-ticker\", seed, \"tick\", floor(t / 3000)), so within a phase every quote stays within level ± 0.40. LEVELS = 100.00, 100.30, 99.80, 101.50, 103.60, 106.10, 104.40, 101.00, 97.60, 96.20, 98.50, 100.00. Previous close is 100.00; the page also shows change vs previous close, a 3-minute sparkline, a 10-minute range and a volume counter.",
+      "watched": [
+        {
+          "key": "level",
+          "label": "Center of the quote band for this phase (USD)"
+        },
+        {
+          "key": "min",
+          "label": "Lowest possible quote in this phase"
+        },
+        {
+          "key": "max",
+          "label": "Highest possible quote in this phase"
+        }
+      ],
+      "phaseCount": 12,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "Live page: the quote re-renders every 3 s. price(t) = round2(LEVELS[phase(t)] + 0.40 * (2u - 1)) with u = rng(\"live-ticker\", seed, \"tick\", floor(t / 3000)); previous close is 100.00. With ?now= pinned, the clock starts at that value and advances in real time.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "level": 100,
+            "min": 99.6,
+            "max": 100.4
+          },
+          "context": {}
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "level": 100.3,
+            "min": 99.9,
+            "max": 100.7
+          },
+          "context": {}
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "level": 99.8,
+            "min": 99.4,
+            "max": 100.2
+          },
+          "context": {}
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "level": 101.5,
+            "min": 101.1,
+            "max": 101.9
+          },
+          "context": {}
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "level": 103.6,
+            "min": 103.2,
+            "max": 104
+          },
+          "context": {}
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "level": 106.1,
+            "min": 105.7,
+            "max": 106.5
+          },
+          "context": {}
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "level": 104.4,
+            "min": 104,
+            "max": 104.8
+          },
+          "context": {}
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "level": 101,
+            "min": 100.6,
+            "max": 101.4
+          },
+          "context": {}
+        },
+        {
+          "phase": 8,
+          "startsAt": "t0 + 8 * step",
+          "readable": true,
+          "watched": {
+            "level": 97.6,
+            "min": 97.2,
+            "max": 98
+          },
+          "context": {}
+        },
+        {
+          "phase": 9,
+          "startsAt": "t0 + 9 * step",
+          "readable": true,
+          "watched": {
+            "level": 96.2,
+            "min": 95.8,
+            "max": 96.6
+          },
+          "context": {}
+        },
+        {
+          "phase": 10,
+          "startsAt": "t0 + 10 * step",
+          "readable": true,
+          "watched": {
+            "level": 98.5,
+            "min": 98.1,
+            "max": 98.9
+          },
+          "context": {}
+        },
+        {
+          "phase": 11,
+          "startsAt": "t0 + 11 * step",
+          "readable": true,
+          "watched": {
+            "level": 100,
+            "min": 99.6,
+            "max": 100.4
+          },
+          "context": {}
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if QWKR goes above $105.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {
+            "6": "Back below $105."
+          }
+        },
+        {
+          "request": "Tell me if QWKR falls below $97.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            9
+          ],
+          "notes": {
+            "10": "Back above $97."
+          }
+        },
+        {
+          "request": "Tell me if QWKR moves more than 3% away from yesterday's close of $100.00.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "optional",
+            "optional",
+            "skip",
+            "report",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            4,
+            9
+          ],
+          "notes": {
+            "5": "Still more than 3% away, now at a different level.",
+            "6": "Still more than 3% away, now at a different level.",
+            "7": "Back within 3% of the close.",
+            "10": "Back within 3% of the close."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it has gone above $105.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "Tick-to-tick jitter (±0.40) is never worth reporting for these requests.",
+        "Every phase band lies entirely on one side of 97, 103 and 105, so each check has one right answer.",
+        "With ?now= pinned, the clock starts at that value and advances in real time."
+      ]
+    },
+    {
+      "id": "threshold-approach",
+      "number": "18",
+      "title": "Gradual approach to a threshold",
+      "path": "s/threshold-approach/",
+      "extraPaths": [],
+      "urlTemplate": "s/threshold-approach/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Kestrel Audio product page for the \"Kestrel Dock 7-in-1 USB-C Hub\" whose price creeps toward $45: $49.99 → $47.99 → $46.49 → $45.20 → $45.00 → $44.80 → $45.30 → $44.60. Phases 3 and 4 are near misses for \"below $45\" ($45.00 is not below $45, but is \"$45 or less\"). Phase 6 bounces back above $45 while the note says \"Lowest price in the last 30 days: $44.80\". A related product costs $44.99 in every phase.",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Current price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 8,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 49.99,
+            "priceText": "$49.99"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 47.99,
+            "priceText": "$47.99"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 46.49,
+            "priceText": "$46.49"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 45.2,
+            "priceText": "$45.20"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 45,
+            "priceText": "$45.00"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 44.8,
+            "priceText": "$44.80"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 45.3,
+            "priceText": "$45.30"
+          },
+          "context": {
+            "lowest30dText": "$44.80"
+          }
+        },
+        {
+          "phase": 7,
+          "startsAt": "t0 + 7 * step",
+          "readable": true,
+          "watched": {
+            "price": 44.6,
+            "priceText": "$44.60"
+          },
+          "context": {
+            "lowest30dText": null
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when the Kestrel Dock drops below $45.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "report"
+          ],
+          "reportPhases": [
+            5,
+            7
+          ],
+          "notes": {
+            "6": "Back above $45."
+          }
+        },
+        {
+          "request": "Tell me when it costs $45 or less.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional",
+            "optional",
+            "report"
+          ],
+          "reportPhases": [
+            4,
+            7
+          ],
+          "notes": {
+            "5": "Already reported the crossing; mentioning a further move is fine but not required.",
+            "6": "Back above $45."
+          }
+        },
+        {
+          "request": "Let me know whenever the price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "report",
+            "report",
+            "report",
+            "report",
+            "report",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's below $45.",
+          "startPhase": 0,
+          "phase": 5
+        },
+        {
+          "condition": "Stop once it's $45 or less.",
+          "startPhase": 0,
+          "phase": 4
+        }
+      ],
+      "notes": [
+        "Phase 7 is a second crossing after the phase-6 bounce; a watcher that already stopped at phase 5 never sees it."
+      ]
+    },
+    {
+      "id": "consent-overlay",
+      "number": "19",
+      "title": "Cookie-consent overlay over the product",
+      "path": "s/consent-overlay/",
+      "extraPaths": [],
+      "urlTemplate": "s/consent-overlay/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Wrenfield Garden Supply product page for a \"Galvanised Watering Can, 9 L\" covered on every load by a modal cookie-consent dialog (\"We value your privacy\") with \"Accept all\", \"Reject non-essential\" and \"Save choices\". The dialog's policy version text changes every phase. The product and its price are in the DOM underneath the whole time: $32.00 (phases 0–2), $27.50 (3–4).",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 5,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "A modal cookie-consent dialog covers the page on every load (nothing is remembered). The product, including its price, is in the DOM underneath the whole time; the dialog text (policy version) changes every phase. \"Accept all\", \"Reject non-essential\" and \"Save choices\" all just close the dialog for this load.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 32,
+            "priceText": "$32.00"
+          },
+          "context": {
+            "noticeVersion": "3.1"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 32,
+            "priceText": "$32.00"
+          },
+          "context": {
+            "noticeVersion": "3.2"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 32,
+            "priceText": "$32.00"
+          },
+          "context": {
+            "noticeVersion": "3.3"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 27.5,
+            "priceText": "$27.50"
+          },
+          "context": {
+            "noticeVersion": "3.4"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 27.5,
+            "priceText": "$27.50"
+          },
+          "context": {
+            "noticeVersion": "3.5"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the watering can gets cheaper.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when it's under $30.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            3
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once it's under $30.",
+          "startPhase": 0,
+          "phase": 3
+        }
+      ],
+      "notes": [
+        "The privacy-preserving choice is \"Reject non-essential\"; nothing is stored, so the dialog returns on every load.",
+        "The dialog text change is not a change of the watched value."
+      ]
+    },
+    {
+      "id": "shrinkflation",
+      "number": "20",
+      "title": "Same shelf price, smaller pack",
+      "path": "s/shrinkflation/",
+      "extraPaths": [],
+      "urlTemplate": "s/shrinkflation/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Pantry Lane Grocers page for \"Oat & Honey Granola Bars\". Shelf price $4.99 for 12 bars ($0.42 / bar) in phases 0–1; in phase 2 the pack shrinks to 10 bars at the same $4.99 ($0.50 / bar, title changes to \"10 pack\"); in phase 4 the shelf price drops to $4.49 ($0.45 / bar).",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Shelf price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Shelf price as displayed"
+        },
+        {
+          "key": "packCount",
+          "label": "Bars per pack"
+        },
+        {
+          "key": "unitPriceText",
+          "label": "Unit price as displayed"
+        }
+      ],
+      "phaseCount": 6,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.99,
+            "priceText": "$4.99",
+            "packCount": 12,
+            "unitPriceText": "$0.42 / bar"
+          },
+          "context": {
+            "unitPrice": 0.416,
+            "packText": "12 × 35 g bars"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.99,
+            "priceText": "$4.99",
+            "packCount": 12,
+            "unitPriceText": "$0.42 / bar"
+          },
+          "context": {
+            "unitPrice": 0.416,
+            "packText": "12 × 35 g bars"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.99,
+            "priceText": "$4.99",
+            "packCount": 10,
+            "unitPriceText": "$0.50 / bar"
+          },
+          "context": {
+            "unitPrice": 0.499,
+            "packText": "10 × 35 g bars"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.99,
+            "priceText": "$4.99",
+            "packCount": 10,
+            "unitPriceText": "$0.50 / bar"
+          },
+          "context": {
+            "unitPrice": 0.499,
+            "packText": "10 × 35 g bars"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.49,
+            "priceText": "$4.49",
+            "packCount": 10,
+            "unitPriceText": "$0.45 / bar"
+          },
+          "context": {
+            "unitPrice": 0.449,
+            "packText": "10 × 35 g bars"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 4.49,
+            "priceText": "$4.49",
+            "packCount": 10,
+            "unitPriceText": "$0.45 / bar"
+          },
+          "context": {
+            "unitPrice": 0.449,
+            "packText": "10 × 35 g bars"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the granola bars' price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "optional",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            4
+          ],
+          "notes": {
+            "2": "Shelf price unchanged, but the pack shrank from 12 to 10 bars (unit price up about 20%); worth a mention."
+          }
+        },
+        {
+          "request": "Tell me if these get more expensive per bar.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "skip",
+            "skip"
+          ],
+          "reportPhases": [
+            2
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me about any change to the price or the pack size.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            2,
+            4
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop if the pack size changes.",
+          "startPhase": 0,
+          "phase": 2
+        }
+      ],
+      "notes": [
+        "Unit price is shown in #unit-price and pack size in #pack-size under the shelf price."
+      ]
+    },
+    {
+      "id": "release-notes",
+      "number": "21",
+      "title": "Release notes / changelog",
+      "path": "s/release-notes/",
+      "extraPaths": [],
+      "urlTemplate": "s/release-notes/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Releases page of the fictional open-source \"Driftwood DB\", newest first, with a \"Latest stable\" box. Baseline latest stable 2.8.1. Phase 1 adds 2.8.2; phase 2 adds 3.0.0-rc.1 (Pre-release); phase 3 only edits the rc.1 notes (adds \"Known issues\"); phase 4 adds 3.0.0-rc.2; phase 5 adds the final 3.0.0; phase 6 adds 3.0.1.",
+      "watched": [
+        {
+          "key": "versions",
+          "label": "Versions listed, newest first"
+        },
+        {
+          "key": "latest",
+          "label": "Newest release (including pre-releases)"
+        },
+        {
+          "key": "latestStable",
+          "label": "Newest stable release (the \"Latest stable\" box)"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": null,
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "2.8.1",
+            "latestStable": "2.8.1"
+          },
+          "context": {
+            "rc1KnownIssues": false
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "2.8.2",
+            "latestStable": "2.8.2"
+          },
+          "context": {
+            "rc1KnownIssues": false
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "3.0.0-rc.1",
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "3.0.0-rc.1",
+            "latestStable": "2.8.2"
+          },
+          "context": {
+            "rc1KnownIssues": false
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "3.0.0-rc.1",
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "3.0.0-rc.1",
+            "latestStable": "2.8.2"
+          },
+          "context": {
+            "rc1KnownIssues": true
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "3.0.0-rc.2",
+              "3.0.0-rc.1",
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "3.0.0-rc.2",
+            "latestStable": "2.8.2"
+          },
+          "context": {
+            "rc1KnownIssues": true
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "3.0.0",
+              "3.0.0-rc.2",
+              "3.0.0-rc.1",
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "3.0.0",
+            "latestStable": "3.0.0"
+          },
+          "context": {
+            "rc1KnownIssues": true
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "versions": [
+              "3.0.1",
+              "3.0.0",
+              "3.0.0-rc.2",
+              "3.0.0-rc.1",
+              "2.8.2",
+              "2.8.1",
+              "2.8.0",
+              "2.7.4",
+              "2.7.3"
+            ],
+            "latest": "3.0.1",
+            "latestStable": "3.0.1"
+          },
+          "context": {
+            "rc1KnownIssues": true
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me when Driftwood 3.0 is released (the final version, not a preview).",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "optional"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {
+            "6": "A 3.0.1 patch release followed."
+          }
+        },
+        {
+          "request": "Tell me about any new release.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "report",
+            "report",
+            "skip",
+            "report",
+            "report",
+            "report"
+          ],
+          "reportPhases": [
+            1,
+            2,
+            4,
+            5,
+            6
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Let me know when a 3.0 release candidate is out.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "report",
+            "skip",
+            "optional",
+            "optional",
+            "skip"
+          ],
+          "reportPhases": [
+            2
+          ],
+          "notes": {
+            "4": "A second release candidate (rc.2).",
+            "5": "The final 3.0.0 is out."
+          }
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once 3.0.0 final is out.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "Pre-releases never change the \"Latest stable\" box.",
+        "Each release is article.release[data-version]."
+      ]
+    },
+    {
+      "id": "layout-redesign",
+      "number": "22",
+      "title": "Site redesign without a price change",
+      "path": "s/layout-redesign/",
+      "extraPaths": [],
+      "urlTemplate": "s/layout-redesign/?t0={t0}&step={step}",
+      "lang": "en",
+      "description": "Lumen Outfitters page for \"Alpine Trekking Poles (pair)\". Phases 0–2 use the classic product layout; from phase 3 the whole site is redesigned (new theme, new navigation, \"Welcome to the new Lumen Outfitters website\" bar, no #product-price, the price in a fixed bottom buy bar) with the same $79.00. The real change comes in phase 5: $72.00. The new layout also shows \"Or 4 interest-free payments of $19.75\" ($18.00 from phase 5).",
+      "watched": [
+        {
+          "key": "price",
+          "label": "Price (USD)"
+        },
+        {
+          "key": "priceText",
+          "label": "Price as displayed"
+        }
+      ],
+      "phaseCount": 7,
+      "afterLastPhase": "holds",
+      "afterLastNotes": "From phase 3 the page uses completely different markup (no #product-price; the price sits in a fixed bottom buy bar, .buybar [data-price-amount]) and a new visual theme.",
+      "phases": [
+        {
+          "phase": 0,
+          "startsAt": "t0 + 0 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {
+            "layout": "classic"
+          }
+        },
+        {
+          "phase": 1,
+          "startsAt": "t0 + 1 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {
+            "layout": "classic"
+          }
+        },
+        {
+          "phase": 2,
+          "startsAt": "t0 + 2 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {
+            "layout": "classic"
+          }
+        },
+        {
+          "phase": 3,
+          "startsAt": "t0 + 3 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {
+            "layout": "redesign"
+          }
+        },
+        {
+          "phase": 4,
+          "startsAt": "t0 + 4 * step",
+          "readable": true,
+          "watched": {
+            "price": 79,
+            "priceText": "$79.00"
+          },
+          "context": {
+            "layout": "redesign"
+          }
+        },
+        {
+          "phase": 5,
+          "startsAt": "t0 + 5 * step",
+          "readable": true,
+          "watched": {
+            "price": 72,
+            "priceText": "$72.00"
+          },
+          "context": {
+            "layout": "redesign"
+          }
+        },
+        {
+          "phase": 6,
+          "startsAt": "t0 + 6 * step",
+          "readable": true,
+          "watched": {
+            "price": 72,
+            "priceText": "$72.00"
+          },
+          "context": {
+            "layout": "redesign"
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": "Tell me if the trekking poles' price changes.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        },
+        {
+          "request": "Tell me when they're under $75.",
+          "startPhase": 0,
+          "expected": [
+            "baseline",
+            "skip",
+            "skip",
+            "skip",
+            "skip",
+            "report",
+            "skip"
+          ],
+          "reportPhases": [
+            5
+          ],
+          "notes": {}
+        }
+      ],
+      "stopConditions": [
+        {
+          "condition": "Stop once they're under $75.",
+          "startPhase": 0,
+          "phase": 5
+        }
+      ],
+      "notes": [
+        "A watcher relying on remembered selectors must re-find the price after phase 3 rather than report \"price missing\"."
+      ]
+    }
+  ]
+}

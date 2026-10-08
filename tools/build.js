@@ -167,15 +167,24 @@ function shell(def, view) {
   );
 }
 
+/** Both languages are in the page; html[lang] decides which one shows (see the style block). */
+function both(en, zh, tag) {
+  tag = tag || 'span';
+  return '<' + tag + ' data-l="en">' + en + '</' + tag + '><' + tag + ' data-l="zh">' + zh + '</' + tag + '>';
+}
+
 function indexHtml(model) {
+  var zhMeta = require('./meta-zh');
   var rows = model.scenarios
     .map(function (s) {
-      var watch = s.watched.map(function (w) { return w.key; }).join(', ');
+      var zh = zhMeta[s.id];
+      if (!zh) fail('scenario ' + s.id + ' has no entry in tools/meta-zh.js');
+      var watch = s.watched.map(function (w) { return '<code>' + esc(w.key) + '</code>'; }).join(', ');
       return (
-        '<li class="sc" data-path="' + s.path + '"><div class="sc-head"><span class="num">' + esc(s.number) + '</span><h2><a class="go" href="' + s.path + '">' + esc(s.title) + '</a></h2></div>' +
-        '<p>' + esc(s.description) + '</p>' +
-        '<p class="meta"><code>' + s.path + '</code> · ' + s.phaseCount + ' phases · watched: ' + esc(watch) +
-        ' · <a class="dbg" href="' + s.path + '?debug=1">with debug panel</a></p></li>'
+        '<li class="sc" data-path="' + s.path + '"><div class="sc-head"><span class="num">' + esc(s.number) + '</span><h2><a class="go" href="' + s.path + '">' + both(esc(s.title), esc(zh.title)) + '</a></h2></div>' +
+        both(esc(s.description), esc(zh.description), 'p') +
+        '<p class="meta"><code>' + s.path + '</code> · ' + both(s.phaseCount + ' phases · watched:', s.phaseCount + ' 个阶段 · 关注字段：') + ' ' + watch +
+        ' · <a class="dbg" href="' + s.path + '?debug=1">' + both('with debug panel', '带答案面板') + '</a></p></li>'
       );
     })
     .join('\n');
@@ -183,6 +192,7 @@ function indexHtml(model) {
     '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex, nofollow">\n' +
     '<link rel="icon" href="data:,">\n<title>Page-watching test fixtures</title>\n<link rel="stylesheet" href="assets/site.css">\n' +
     '<style>\n' +
+    'html:not(:lang(zh)) [data-l="zh"],html:lang(zh) [data-l="en"]{display:none!important}\n' +
     '.ix header{background:#16202a;color:#fff;padding:28px 0}.ix header h1{font-size:1.8rem;margin:0 0 6px}.ix header p{color:#c9d3dc;max-width:820px}\n' +
     '.ix .controls{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--line);padding:12px 0}.ix .controls .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:.92rem}\n' +
     '.ix .controls input,.ix .controls select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px}.ix .controls code{background:var(--bg-2);padding:2px 6px;border-radius:4px}\n' +
@@ -190,25 +200,53 @@ function indexHtml(model) {
     '.ix .sc-head{display:flex;align-items:center;gap:12px}.ix .sc h2{margin:0;font-size:1.1rem}.ix .num{background:#16202a;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;font-size:.85rem}\n' +
     '.ix .sc p{margin:8px 0 0}.ix .meta{font-size:.85rem;color:var(--ink-3)}.ix .doc{max-width:820px}.ix .doc code{background:var(--bg-2);padding:1px 5px;border-radius:4px}\n' +
     '</style>\n</head>\n<body class="ix">\n' +
-    '<header><div class="wrap"><h1>Page-watching test fixtures</h1><p>Static pages for testing an agent that periodically opens a page, reads a value the user cares about, compares it with earlier checks, and decides whether to notify the user or stop. Every page\'s state is a pure function of the current time and its URL parameters, so the right answer is known in advance. All stores, brands and products are fictional.</p></div></header>\n' +
+    '<header><div class="wrap"><h1>' + both('Page-watching test fixtures', '页面关注测试页') + '</h1>' +
+    both(
+      'Static pages for testing an agent that periodically opens a page, reads a value the user cares about, compares it with earlier checks, and decides whether to notify the user or stop. Every page\'s state is a pure function of the current time and its URL parameters, so the right answer is known in advance. All stores, brands and products are fictional.',
+      '用来测试这样一个 agent 的静态页面：它定期打开一个页面，读取用户关心的值，和之前的结果比较，再决定是否通知用户或停止。每个页面的状态完全由当前时间和链接参数决定，所以正确答案事先就知道。所有商店、品牌和商品都是虚构的。',
+      'p'
+    ) +
+    '</div></header>\n' +
     '<div class="controls"><div class="wrap">' +
-    '<span>t0 = <code id="t0">(static links: default t0 = midnight UTC)</code></span>' +
-    '<button class="btn secondary" type="button" id="reset" style="padding:5px 12px">Set t0 = now</button>' +
-    '<label>step <select id="step"><option value="10">10 s</option><option value="60">60 s</option><option value="300">5 min</option><option value="600" selected>10 min (default)</option><option value="3600">1 h</option></select></label>' +
-    '<label>language <select id="lang"><option value="" selected>page default</option><option value="en">English (en)</option><option value="zh">中文 (zh)</option></select></label>' +
-    '<label><input type="checkbox" id="debug"> debug panel</label>' +
-    '<a href="scenarios.json">scenarios.json</a><a href="' + REPO_URL + '">README / source</a></div></div>\n' +
-    '<main class="wrap">\n<section class="doc"><h2 style="margin-top:24px">Time model</h2>' +
-    '<p><code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise), <code>lang=en|zh</code> (page language; default: the scenario\'s own; only words change, never numbers or prices). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.</p>' +
-    '<p>The links below carry <code>t0</code> = the moment you opened this index (set by script) and the chosen <code>step</code>. Without script they point at the bare paths (default t0).</p></section>\n' +
+    '<span>t0 = <code id="t0">' + both('(static links: default t0 = midnight UTC)', '（静态链接：默认 t0 = UTC 零点）') + '</code></span>' +
+    '<button class="btn secondary" type="button" id="reset" style="padding:5px 12px">' + both('Set t0 = now', 't0 设为现在') + '</button>' +
+    '<label>' + both('step', '每阶段') + ' <select id="step"><option value="10">10 s</option><option value="60">60 s</option><option value="300">5 min</option><option value="600" selected data-en="10 min (default)" data-zh="10 min（默认）">10 min (default)</option><option value="3600">1 h</option></select></label>' +
+    '<label>' + both('language', '语言') + ' <select id="lang"><option value="" selected data-en="page default" data-zh="页面默认">page default</option><option value="en">English (en)</option><option value="zh">中文 (zh)</option></select></label>' +
+    '<label><input type="checkbox" id="debug"> ' + both('debug panel', '答案面板') + '</label>' +
+    '<a href="scenarios.json">scenarios.json</a><a href="' + REPO_URL + '">' + both('README / source', 'README / 源码') + '</a></div></div>\n' +
+    '<main class="wrap">\n<section class="doc"><h2 style="margin-top:24px">' + both('Time model', '时间模型') + '</h2>' +
+    both(
+      '<code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise), <code>lang=en|zh</code> (page language; default: the scenario\'s own; only words change, never numbers or prices). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.',
+      '<code>phase = max(0, floor((now − t0) / (step × 1000)))</code>，到最后一个阶段后保持不变。参数：<code>t0</code>（毫秒时间戳，默认：最近的 UTC 零点）、<code>step</code>（秒，默认 600）、<code>now</code>（可选，毫秒时间戳，用来固定时钟）、<code>seed</code>（可选，只影响干扰内容）、<code>debug=1</code>（答案面板；不带时 DOM 里完全没有）、<code>lang=en|zh</code>（页面语言；默认用页面自己的语言；只换文字，不改数字和价格）。页面只在加载时计算状态；只有 <em>live-ticker</em> 会自己更新。',
+      'p'
+    ) +
+    both(
+      'The links below carry <code>t0</code> = the moment you opened this index (set by script), the chosen <code>step</code> and the chosen language. Without script they point at the bare paths (default t0). This index remembers the language you pick in this browser; the scenario pages themselves read the language only from their link, so a link always shows the same page wherever it is opened.',
+      '下面的链接带着打开本页时的 <code>t0</code>（由脚本设置）、所选的 <code>step</code> 和语言。没有脚本时，链接指向不带参数的路径（默认 t0）。本页会在这个浏览器里记住你选的语言；场景页面本身只从链接里读语言，所以同一个链接在哪里打开都显示同样的页面。',
+      'p'
+    ) +
+    '</section>\n' +
     '<ol class="list">\n' + rows + '\n</ol>\n</main>\n' +
-    '<footer class="fixture-footer">' + FOOTER + '</footer>\n' +
+    '<footer class="fixture-footer">' + both(FOOTER, '自动化页面关注测试用的测试页面，不是真实商店。') + '</footer>\n' +
     '<script>\n' +
     '(function () {\n' +
+    '  var LANG_KEY = "wf-index-lang";\n' +
     '  var t0 = Date.now();\n' +
     '  var step = document.getElementById("step");\n' +
     '  var debug = document.getElementById("debug");\n' +
     '  var lang = document.getElementById("lang");\n' +
+    '  function remembered() {\n' +
+    '    try { return localStorage.getItem(LANG_KEY) || ""; } catch (e) { return ""; }\n' +
+    '  }\n' +
+    '  function remember(v) {\n' +
+    '    try { if (v) localStorage.setItem(LANG_KEY, v); else localStorage.removeItem(LANG_KEY); } catch (e) { /* storage unavailable: the choice lasts for this visit */ }\n' +
+    '  }\n' +
+    '  function showLang() {\n' +
+    '    var zh = lang.value === "zh";\n' +
+    '    document.documentElement.lang = zh ? "zh-CN" : "en";\n' +
+    '    document.title = zh ? "页面关注测试页" : "Page-watching test fixtures";\n' +
+    '    Array.prototype.forEach.call(document.querySelectorAll("option[data-zh]"), function (o) { o.textContent = o.getAttribute(zh ? "data-zh" : "data-en"); });\n' +
+    '  }\n' +
     '  function apply() {\n' +
     '    document.getElementById("t0").textContent = t0 + " (" + new Date(t0).toISOString() + ")";\n' +
     '    var lq = lang.value ? "&lang=" + lang.value : "";\n' +
@@ -218,10 +256,20 @@ function indexHtml(model) {
     '      li.querySelector("a.dbg").href = li.getAttribute("data-path") + "?t0=" + t0 + "&step=" + step.value + lq + "&debug=1";\n' +
     '    });\n' +
     '  }\n' +
+    '  // ?lang= on the index wins and is remembered; otherwise the remembered choice.\n' +
+    '  var asked = new URLSearchParams(location.search).get("lang");\n' +
+    '  if (asked === "zh" || asked === "en") { lang.value = asked; remember(asked); }\n' +
+    '  else lang.value = remembered();\n' +
     '  document.getElementById("reset").addEventListener("click", function () { t0 = Date.now(); apply(); });\n' +
     '  step.addEventListener("change", apply);\n' +
     '  debug.addEventListener("change", apply);\n' +
-    '  lang.addEventListener("change", apply);\n' +
+    '  lang.addEventListener("change", function () {\n' +
+    '    remember(lang.value);\n' +
+    '    showLang();\n' +
+    '    apply();\n' +
+    '    try { history.replaceState(null, "", lang.value ? "?lang=" + lang.value : location.pathname); } catch (e) { /* not essential */ }\n' +
+    '  });\n' +
+    '  showLang();\n' +
     '  apply();\n' +
     '})();\n' +
     '</script>\n</body>\n</html>\n'
@@ -269,6 +317,8 @@ function readme(model) {
     '## Languages',
     '',
     'Every page exists in English and Chinese. Scenario code is written in the page\'s own language; `?lang=` asks for the other one, and `assets/core.js` translates the page on the client with the dictionaries in `assets/i18n/` (`common.js` for the shared store chrome, one file per scenario). Every text node and the `placeholder`, `aria-label`, `alt` and `title` attributes are translated, including text a scenario inserts later (a `MutationObserver`); dates and relative times are converted first. Brand, product and people\'s names, SKUs, numbers, prices and currencies stay as they are. The internal links and the `page-gone` redirect keep the query string, so the language survives them.',
+    '',
+    'The index page is in both languages too (`tools/meta-zh.js` holds the Chinese scenario titles and descriptions). It remembers the language you pick in that browser and writes it into every scenario link it builds. The scenario pages never read a remembered choice: their language comes from the link alone, so a link shows the same page in any browser, which is what makes the answer key hold.',
     '',
     '`node tools/i18n-extract.js --lang zh --untranslated` lists rendered text that still contains Latin words after translating (names on a scenario\'s keep list excepted); `--lang en --only zh-price` does the same the other way. Text a scenario inserts after load is checked by `tools/validate.js`, which also loads every phase of every page in the other language.',
     '',

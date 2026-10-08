@@ -509,6 +509,49 @@ async function run(cdp, tab, url, js, settleMs) {
   return res.result.value;
 }
 
+/**
+ * The index shows the chosen language, writes it into every scenario link and
+ * remembers it in the browser; ?lang= on the index wins. Runs in one tab, in order.
+ */
+async function indexLanguageChecks(cdp, base) {
+  var tab = await openTab(cdp);
+  var STATE =
+    'const shown=l=>[...document.querySelectorAll("[data-l="+l+"]")].every(e=>getComputedStyle(e).display!=="none");' +
+    'const links=[...document.querySelectorAll("a.go,a.dbg")].map(a=>new URL(a.href).searchParams.get("lang"));' +
+    'return {html:document.documentElement.lang,select:document.getElementById("lang").value,zh:shown("zh"),en:shown("en"),links:[...new Set(links)],search:location.search,title:document.title};';
+  var CHOOSE = function (v) {
+    return 'const s=document.getElementById("lang");s.value="' + v + '";s.dispatchEvent(new Event("change"));' + STATE;
+  };
+  var steps = [
+    { label: 'index ?lang=zh', url: base + '?lang=zh', js: STATE, want: { html: 'zh-CN', select: 'zh', zh: true, en: false, links: ['zh'] } },
+    { label: 'index reopened (remembers zh)', url: base, js: STATE, want: { html: 'zh-CN', select: 'zh', zh: true, en: false, links: ['zh'] } },
+    { label: 'index switched to en', url: null, js: CHOOSE('en'), want: { html: 'en', select: 'en', zh: false, en: true, links: ['en'], search: '?lang=en' } },
+    { label: 'index reopened (remembers en)', url: base, js: STATE, want: { html: 'en', select: 'en', zh: false, en: true, links: ['en'] } },
+    { label: 'index switched to page default', url: null, js: CHOOSE(''), want: { html: 'en', select: '', en: true, links: [null], search: '' } },
+    { label: 'index reopened (nothing remembered)', url: base, js: STATE, want: { html: 'en', select: '', en: true, links: [null] } },
+  ];
+  for (var i = 0; i < steps.length; i++) {
+    var st = steps[i];
+    var errs = [];
+    try {
+      var got;
+      if (st.url) got = await run(cdp, tab, st.url, st.js);
+      else {
+        var res = await cdp.send('Runtime.evaluate', { expression: '(()=>{' + st.js + '})()', returnByValue: true }, tab.sid);
+        got = res.result.value;
+      }
+      Object.keys(st.want).forEach(function (k) { eqMsg(errs, k, got[k], st.want[k]); });
+      if (got.html === 'zh-CN') eqMsg(errs, 'title', got.title, '页面关注测试页');
+      tab.errors.forEach(function (e) { errs.push('page error: ' + e); });
+    } catch (e) {
+      errs.push(e.message);
+    }
+    if (errs.length) failures.push(st.label + ': ' + errs.join('; '));
+    else passes++;
+  }
+  await cdp.send('Target.closeTarget', { targetId: tab.targetId });
+}
+
 async function browserChecks() {
   var server = null;
   var base = BASE;
@@ -628,6 +671,7 @@ async function browserChecks() {
   var workers = [];
   for (var i = 0; i < CONCURRENCY; i++) workers.push(worker());
   await Promise.all(workers);
+  if (!ONLY) await indexLanguageChecks(b.cdp, base);
   b.ws.close();
   b.proc.kill('SIGTERM');
   await new Promise(function (r) { setTimeout(r, 300); });

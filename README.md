@@ -33,6 +33,8 @@ GitHub Pages serves every page with HTTP 200, so the "error", "gone" and "moved"
 
 Every page exists in English and Chinese. Scenario code is written in the page's own language; `?lang=` asks for the other one, and `assets/core.js` translates the page on the client with the dictionaries in `assets/i18n/` (`common.js` for the shared store chrome, one file per scenario). Every text node and the `placeholder`, `aria-label`, `alt` and `title` attributes are translated, including text a scenario inserts later (a `MutationObserver`); dates and relative times are converted first. Brand, product and people's names, SKUs, numbers, prices and currencies stay as they are. The internal links and the `page-gone` redirect keep the query string, so the language survives them.
 
+The index page is in both languages too (`tools/meta-zh.js` holds the Chinese scenario titles and descriptions). It remembers the language you pick in that browser and writes it into every scenario link it builds. The scenario pages never read a remembered choice: their language comes from the link alone, so a link shows the same page in any browser, which is what makes the answer key hold.
+
 `node tools/i18n-extract.js --lang zh --untranslated` lists rendered text that still contains Latin words after translating (names on a scenario's keep list excepted); `--lang en --only zh-price` does the same the other way. Text a scenario inserts after load is checked by `tools/validate.js`, which also loads every phase of every page in the other language.
 
 ## scenarios.json

@@ -262,18 +262,18 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 
 <div class="wrap">
   <header class="top">
-    <p class="meta"><span>feature/task-conversation-link-v2</span><span>2aaaa3149</span><span>基于 staging e96accd69</span><span>2026-10-08</span></p>
+    <p class="meta"><span>feature/task-conversation-link-v2</span><span>17c93aac4</span><span>基于 staging 27e7f01c2</span><span>2026-10-08</span></p>
     <h1>关注页面与任务汇报手测</h1>
     <p class="lede">覆盖这个分支所有用户能看到的改动：网页右键「让 Phi 关注此页面」在侧边栏问几个问题后建定时任务；问题卡片的芯片、按条件出现的字段和日期时间选择；任务运行结果回到建任务的对话；在对话里用话管理任务；对话列表的未读、任务视图和多分类；以及服务在任务运行中重启时的处理。从搭环境开始写起，测试网站的 23 个场景附逐阶段的标准答案。</p>
 
     <div class="summary" aria-label="进度">
       <div class="stats">
-        <span>共 <b id="n-total">118</b> 项</span>
+        <span>共 <b id="n-total">119</b> 项</span>
         <span class="s-pass">通过 <b id="n-pass">0</b></span>
         <span class="s-fail">失败 <b id="n-fail">0</b></span>
         <span class="s-block">阻塞 <b id="n-block">0</b></span>
         <span class="s-skip">跳过 <b id="n-skip">0</b></span>
-        <span class="s-open">未测 <b id="n-open">118</b></span>
+        <span class="s-open">未测 <b id="n-open">119</b></span>
       </div>
       <div class="bar" aria-hidden="true"><span class="b-pass" id="bar-pass"></span><span class="b-fail" id="bar-fail"></span><span class="b-block" id="bar-block"></span><span class="b-skip" id="bar-skip"></span></div>
       <div class="tools">
@@ -315,10 +315,10 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
         <p class="intro">本地起一个这个分支的 phi-agent（端口 8788），再把这个分支的 Sidecar 加载进 Phi Canary 并让它连本地 phi-agent。命令都在仓库根目录执行，除非写了 <code>cd</code>。</p>
         <ol class="steps"><li class="step"><h3>确认前置条件</h3><ul><li>macOS，已安装 Phi Canary（<code>/Applications/Phi Canary.app</code>），并用公司测试账号登录（stag 环境，登录走 <code>auth.stag.phibrowser.com</code>）。</li><li><b>退出 Phi 正式版。</b>本地 phi-agent 要连 Canary 的 Runner 和浏览器通道，两个浏览器都开着时容易连错。</li><li>Docker Desktop 已运行（提供 Postgres）。</li><li>测通知卡片（N 节）要用较新的 Canary：2026-10-08 在 Canary 154 上实测可用。</li><li>Node 24（仓库钉的是 24.14.0，20 以上能用）和 pnpm 10.17.1。</li><li>网络能访问 <code>ai-service.stag.phibrowser.com</code>（模型）和测试网站 <a href="https://woodnotfound.github.io/phi-watch-test-pages/" target="_blank" rel="noopener">https://woodnotfound.github.io/phi-watch-test-pages/</a>。</li><li>知道会发生什么：加载 Sidecar 会<b>重启 Canary</b>，影响所有 Profile（包括 Phi Chat 窗口），先保存草稿、结束进行中的对话；测完换回商店版没有自动步骤（见「收尾」）。</li><li>本地 phi-agent 用独立的数据库，对话列表一开始是空的。Canary 原来的对话不会出现，也不会被改动。</li></ul><div class="cmd"><pre><code>node -v
 pnpm -v
-docker info --format &#x27;{{.ServerVersion}}&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div></li><li class="step"><h3>取代码并安装依赖</h3><p>被测分支 <code>feature/task-conversation-link-v2</code>，最新提交 <code>2aaaa3149</code>，基于 staging <code>e96accd69</code>，共 46 个提交。分支<b>目前只在 Wood 本机，还没推送</b>；推送后其他人先 <code>git fetch</code>。</p><div class="cmd"><pre><code>cd ~/Sources/FydeOS/phi-ai
+docker info --format &#x27;{{.ServerVersion}}&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div></li><li class="step"><h3>取代码并安装依赖</h3><p>被测分支 <code>feature/task-conversation-link-v2</code>，最新提交 <code>17c93aac4</code>，基于 staging <code>27e7f01c2</code>（#547），共 46 个提交。分支<b>目前只在 Wood 本机，还没推送</b>；推送后其他人先 <code>git fetch</code>。</p><div class="cmd"><pre><code>cd ~/Sources/FydeOS/phi-ai
 git switch feature/task-conversation-link-v2
 git log -1 --oneline
-pnpm install</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：<code>git log</code> 输出以 <code>2aaaa3149 fix(watch-page): the custom frequency&#x27;s placeholder examples are in the user&#x27;s language</code> 开头。</p></li><li class="step"><h3>准备数据库和 phi-agent 配置</h3><p>用仓库自带的 compose 起一个 Postgres（容器 <code>phi-memory-pg</code>，端口 5432，用户和密码都是 <code>phi</code>）。phi-agent 启动时会自动建库建表，库名随意。已有别的 Postgres 也可以用。</p><div class="cmd"><pre><code>docker compose -f phi-memory/docker-compose.yml up -d --wait</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p>没有 <code>phi-agent-dsh/.env</code> 就从模板复制一份；已有的话只改 <code>POSTGRES_URL</code>：</p><div class="cmd"><pre><code>cp phi-agent-dsh/.env.example phi-agent-dsh/.env</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>POSTGRES_URL=postgres://phi:phi@127.0.0.1:5432/phi_agent_manual</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p>其余保持模板默认：<code>OPENAI_BASE_URL</code> 指向 stag ai-service，<code>AUTH0_DOMAIN=auth.stag.phibrowser.com</code>，<code>ENABLE_LOOPBACK=true</code> 打开 8788 端口。<code>OPENAI_API_KEY</code> 留空即可：带 <code>PHI_SENTINEL_UNMANAGED=1</code> 启动时，模型调用直接发到 ai-service，用 Runner 发的 token。</p></li><li class="step"><h3>构建并加载 Sidecar（会重启 Canary）</h3><p><code>build:local</code> 把 Sidecar 指向 <code>http://127.0.0.1:8788</code>（配置在 <code>deployment/env/local/ai-sidebar.env</code>）。加载脚本把 <code>dist</code> 复制成一份快照，再用 <code>--load-extension</code> 重启 Canary。先 <code>--dry-run</code> 看计划，确认后再正式执行。</p><div class="cmd"><pre><code>pnpm --filter @phi-ai/sidecar build:local</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>bash scripts/load-phi-canary-plugins.sh --sidecar-only --dry-run</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>bash scripts/load-phi-canary-plugins.sh --sidecar-only --quit-existing</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：输出 <code>Sidecar snapshot: ~/.local/state/phi-debug/sidecar-load/load.XXXXXX/extension</code> 和 <code>Loading Sidecar: …</code>，Canary 正常退出后重新打开，并打开 Phi Chat 窗口。</p><p>不要加 <code>--build</code>：它会按正常配置重新构建，Sidecar 就不连本地了。改了 Sidecar 代码要重新 <code>build:local</code> 再跑加载脚本，快照不会自己更新。</p></li><li class="step"><h3>找到 Canary 的 Runner socket</h3><p>Canary 每次重启，Runner 的 socket 路径都会变，所以这一步放在加载 Sidecar 之后。以后只要重启了 Canary，就重新找一次，并重启 phi-agent。</p><div class="cmd"><pre><code>pgrep -f &#x27;Phi Canary.app/Contents/Library/LoginItems/.*MacOS/runner&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>lsof -a -p &lt;上一步的 PID&gt; -U -Fn | grep &#x27;runner.sock$&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：输出一行 <code>n/tmp/phi-sentinel-&lt;hash&gt;/runner.sock</code>，去掉开头的 <code>n</code> 就是路径。</p></li><li class="step"><h3>启动 phi-agent（保持这个终端开着）</h3><div class="cmd"><pre><code>cd phi-agent-dsh
+pnpm install</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：<code>git log</code> 输出以 <code>17c93aac4 fix(tasks): a task report&#x27;s notification card is sent through any open Profile</code> 开头。</p></li><li class="step"><h3>准备数据库和 phi-agent 配置</h3><p>用仓库自带的 compose 起一个 Postgres（容器 <code>phi-memory-pg</code>，端口 5432，用户和密码都是 <code>phi</code>）。phi-agent 启动时会自动建库建表，库名随意。已有别的 Postgres 也可以用。</p><div class="cmd"><pre><code>docker compose -f phi-memory/docker-compose.yml up -d --wait</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p>没有 <code>phi-agent-dsh/.env</code> 就从模板复制一份；已有的话只改 <code>POSTGRES_URL</code>：</p><div class="cmd"><pre><code>cp phi-agent-dsh/.env.example phi-agent-dsh/.env</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>POSTGRES_URL=postgres://phi:phi@127.0.0.1:5432/phi_agent_manual</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p>其余保持模板默认：<code>OPENAI_BASE_URL</code> 指向 stag ai-service，<code>AUTH0_DOMAIN=auth.stag.phibrowser.com</code>，<code>ENABLE_LOOPBACK=true</code> 打开 8788 端口。<code>OPENAI_API_KEY</code> 留空即可：带 <code>PHI_SENTINEL_UNMANAGED=1</code> 启动时，模型调用直接发到 ai-service，用 Runner 发的 token。</p></li><li class="step"><h3>构建并加载 Sidecar（会重启 Canary）</h3><p><code>build:local</code> 把 Sidecar 指向 <code>http://127.0.0.1:8788</code>（配置在 <code>deployment/env/local/ai-sidebar.env</code>）。加载脚本把 <code>dist</code> 复制成一份快照，再用 <code>--load-extension</code> 重启 Canary。先 <code>--dry-run</code> 看计划，确认后再正式执行。</p><div class="cmd"><pre><code>pnpm --filter @phi-ai/sidecar build:local</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>bash scripts/load-phi-canary-plugins.sh --sidecar-only --dry-run</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>bash scripts/load-phi-canary-plugins.sh --sidecar-only --quit-existing</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：输出 <code>Sidecar snapshot: ~/.local/state/phi-debug/sidecar-load/load.XXXXXX/extension</code> 和 <code>Loading Sidecar: …</code>，Canary 正常退出后重新打开，并打开 Phi Chat 窗口。</p><p>不要加 <code>--build</code>：它会按正常配置重新构建，Sidecar 就不连本地了。改了 Sidecar 代码要重新 <code>build:local</code> 再跑加载脚本，快照不会自己更新。</p></li><li class="step"><h3>找到 Canary 的 Runner socket</h3><p>Canary 每次重启，Runner 的 socket 路径都会变，所以这一步放在加载 Sidecar 之后。以后只要重启了 Canary，就重新找一次，并重启 phi-agent。</p><div class="cmd"><pre><code>pgrep -f &#x27;Phi Canary.app/Contents/Library/LoginItems/.*MacOS/runner&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><div class="cmd"><pre><code>lsof -a -p &lt;上一步的 PID&gt; -U -Fn | grep &#x27;runner.sock$&#x27;</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：输出一行 <code>n/tmp/phi-sentinel-&lt;hash&gt;/runner.sock</code>，去掉开头的 <code>n</code> 就是路径。</p></li><li class="step"><h3>启动 phi-agent（保持这个终端开着）</h3><div class="cmd"><pre><code>cd phi-agent-dsh
 RUNNER_SOCKET=/tmp/phi-sentinel-&lt;hash&gt;/runner.sock PHI_SENTINEL_UNMANAGED=1 TMPDIR=/tmp pnpm dev:self-hosted</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p class="ok">预期：先生成 rows 表，然后出现 <code>Starting phi-agent server on 127.0.0.1:8788</code>。第一次启动会自动建库 <code>phi_agent_manual</code>。另开一个终端检查端口：</p><div class="cmd"><pre><code>curl -s -o /dev/null -w &#x27;%{http_code}\n&#x27; http://127.0.0.1:8788/health</code></pre><button type="button" class="copy" aria-label="复制命令">复制</button></div><p>返回 <code>401</code> 就说明服务在（<code>/health</code> 需要登录）。没有 <code>RUNNER_SOCKET</code> 时任务运行和定时触发拿不到 token，会失败。</p><p>停止：在这个终端按 <kbd>Ctrl-C</kbd>。如果 8788 仍被占用，用 <code>lsof -ti tcp:8788 -sTCP:LISTEN</code> 查到 PID，再 <code>kill</code> 这个 PID。</p><p>平时用 <code>pnpm dev:local</code> 的也可以：它同时起 Postgres、phi-memory 和 phi-agent（phi-memory 需要自己的 <code>phi-memory/.env</code>），phi-agent 同样在 8788。两个服务都开着 Phi 正式版时，要用 <code>RUNNER_SOCKET=… pnpm dev:local</code> 指定 Canary 的 socket。</p></li></ol>
         <p class="sub-h">第 7 步：检查连通</p>
         
@@ -1197,7 +1197,7 @@ RUNNER_SOCKET=/tmp/phi-sentinel-&lt;hash&gt;/runner.sock PHI_SENTINEL_UNMANAGED=
 </section>
 <section class="sec" id="sec-N" data-sec="N">
   <h2><span class="sk">N</span>任务汇报的通知卡片</h2>
-  <p class="intro">任务汇报写进对话以后，如果你当时没在看这个对话，并且模型判断这条汇报值得打扰你，浏览器会弹出一张通知卡片。判断在汇报写进对话约 8 秒后做，看两件事：这个对话还没读，以及汇报是不是你要听的新消息。每次的结果写在「Shadow 任务」页这次运行的时间线日志里，是一行以 <code>Notification card shown</code> 或 <code>No notification card:</code> 开头的英文。<br>准备：用 price-step-down（step 300）建一个关注，第一问回答「降到 50 美元以下告诉我」，期限回答「降到 50 以下就不用再看了」。之后按阶段手动「立即运行」。「没在看」指：侧边栏关着或切到了别的对话，Phi Chat 窗口也没开着这个对话。</p>
+  <p class="intro">任务汇报写进对话以后，如果你当时没在看这个对话，并且模型判断这条汇报值得打扰你，浏览器会弹出一张通知卡片。判断在汇报写进对话约 8 秒后做，看两件事：这个对话还没读，以及汇报是不是你要听的新消息。每次的结果写在「Shadow 任务」页这次运行的时间线日志里，是一行以 <code>Notification card shown</code> 或 <code>No notification card:</code> 开头的英文。<br>准备：用 price-step-down（step 300）建一个关注，第一问回答「降到 50 美元以下告诉我」，期限回答「降到 50 以下就不用再看了」。之后按阶段手动「立即运行」。「没在看」指：侧边栏关着或切到了别的对话，Phi Chat 窗口也没开着这个对话。卡片适用于所有会汇报到对话里的任务，不只是关注页面；在 Phi Chat 窗口里建的任务也弹（N-08）。</p>
   
 <article class="case" id="case-N-01" data-case="N-01" data-title="开着这个对话时不弹">
   <header class="case-head">
@@ -1293,6 +1293,22 @@ RUNNER_SOCKET=/tmp/phi-sentinel-&lt;hash&gt;/runner.sock PHI_SENTINEL_UNMANAGED=
   <div class="result" role="group" aria-label="N-06 结果">
     <button type="button" data-s="pass" aria-pressed="false">通过</button><button type="button" data-s="fail" aria-pressed="false">失败</button><button type="button" data-s="block" aria-pressed="false">阻塞</button><button type="button" data-s="skip" aria-pressed="false">跳过</button>
     <label class="sr" for="memo-N-06">N-06 备注</label><input class="memo" id="memo-N-06" type="text" placeholder="备注：失败时写看到了什么" autocomplete="off">
+  </div>
+</article>
+<article class="case" id="case-N-08" data-case="N-08" data-title="Phi Chat 窗口里建的任务也弹卡">
+  <header class="case-head">
+    <span class="cid">N-08</span><span class="pri p1">P1</span>
+    <h4>Phi Chat 窗口里建的任务也弹卡</h4><span class="state" aria-live="polite"></span>
+  </header>
+  <p class="pre"><span class="lbl">前置</span>在 Phi Chat 窗口里新开对话，让 agent 建一个关注任务（比如「帮我关注 &lt;price-step-down 链接&gt;，降到 50 美元以下告诉我」），按它的询问选一个 Profile / Space 执行。</p>
+  <div class="case-body">
+    <div class="col"><h5>步骤</h5><ol><li>Phi Chat 窗口切到别的对话。</li><li>到第 3 阶段（$49.99）时「立即运行」，等汇报写进对话后再等 15 秒。</li><li>点卡片的「查看详情」。</li></ol></div>
+    <div class="col"><h5>预期</h5><ul class="expect"><li>照样弹卡片（这种对话不属于任何 Profile，卡片由某个已打开的 Profile 的 Sidecar 发出，浏览器层面所有窗口都能看到）。</li><li>「查看详情」在 Phi Chat 窗口打开这个对话。</li></ul></div>
+  </div>
+  
+  <div class="result" role="group" aria-label="N-08 结果">
+    <button type="button" data-s="pass" aria-pressed="false">通过</button><button type="button" data-s="fail" aria-pressed="false">失败</button><button type="button" data-s="block" aria-pressed="false">阻塞</button><button type="button" data-s="skip" aria-pressed="false">跳过</button>
+    <label class="sr" for="memo-N-08">N-08 备注</label><input class="memo" id="memo-N-08" type="text" placeholder="备注：失败时写看到了什么" autocomplete="off">
   </div>
 </article>
 <article class="case" id="case-N-07" data-case="N-07" data-title="没点的卡片自己消失">
@@ -2483,7 +2499,7 @@ RUNNER_SOCKET=/tmp/phi-sentinel-&lt;hash&gt;/runner.sock PHI_SENTINEL_UNMANAGED=
       lines.push("[" + LABEL[r.s] + "] " + el.dataset.case + " " + el.dataset.title + (r.n ? " — " + r.n : ""));
     });
     var open = cases.length - c.pass - c.fail - c.block - c.skip;
-    var head = "关注页面与任务汇报手测 · 2aaaa3149 · " + new Date().toLocaleString("zh-CN", { hour12: false }) +
+    var head = "关注页面与任务汇报手测 · 17c93aac4 · " + new Date().toLocaleString("zh-CN", { hour12: false }) +
       "\n通过 " + c.pass + " · 失败 " + c.fail + " · 阻塞 " + c.block + " · 跳过 " + c.skip + " · 未测 " + open;
     copyText(head + (lines.length ? "\n\n" + lines.join("\n") : "\n\n（还没有标记任何结果）"), "已复制 " + lines.length + " 条结果。");
   });

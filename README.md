@@ -79,6 +79,10 @@ Comparisons in `expected` are always against the last readable phase. Threshold 
 
 See `scenarios.json` or open any page with `?debug=1` for the full timelines.
 
+## Manual test plan
+
+[`qa/`](https://woodnotfound.github.io/phi-watch-test-pages/qa/) is the manual test plan (in Chinese) for watching pages with Phi and the task reports that follow, with a link generator and this site's answer key per phase. It is generated in the phi-ai repository and copied here as a static page; `tools/build.js` does not touch it.
+
 ## Development
 
 ```

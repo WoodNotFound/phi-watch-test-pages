@@ -1,0 +1,41 @@
+(function (WF) {
+  'use strict';
+  WF.i18n.add('layout-redesign', {
+    zh: {
+      'Trekking poles': '登山杖',
+      'Carbon shafts': '碳纤维杖身',
+      'Cork grips': '软木握把',
+      'Flick-lock adjustment': '快锁调节',
+      'Carbon fibre shafts, 460 g per pair': '碳纤维杖身，每对 460 g',
+      'Adjustable 105–135 cm': '可调节 105–135 cm',
+      'Natural cork grips with EVA extensions': '天然软木握把，带 EVA 延长握把',
+      'Light, stiff and quick to adjust, these poles take the load off your knees on long descents.': '轻、硬、调节快，长距离下坡时帮膝盖分担压力。',
+      '460 g per pair': '每对 460 g',
+      Length: '长度',
+      Shaft: '杖身',
+      'Carbon fibre': '碳纤维',
+      Grip: '握把',
+      Cork: '软木',
+      'Light and solid': '轻便又结实',
+      'Locks never slipped on a week-long trek.': '走了一周的长线，锁扣一次都没滑过。',
+      'Welcome to the new Lumen Outfitters website. Same gear, fresh look.': '欢迎来到全新的 Lumen Outfitters 网站。装备不变，面貌一新。',
+      Shop: '商店',
+      Journal: '专栏',
+      Repairs: '维修',
+      Stores: '门店',
+      'Hiking / Trekking poles': '徒步 / 登山杖',
+      'Carbon shafts. Cork grips. Built for long descents.': '碳纤维杖身。软木握把。为长距离下坡而生。',
+      'Why you will like them': '你会喜欢它的理由',
+      Rating: '评分',
+      'In stock · ships in 1–2 days': '有货 · 1–2 天内发货',
+      'Add to bag': '加入购物袋',
+      Buy: '购买',
+    },
+    zhPatterns: [
+      [/^Bag · (\d+)$/, '购物袋 · $1'],
+      [/^(\d(?:\.\d)?) \/ 5 from ([\d,]+) reviews$/, '$1 / 5，共 $2 条评价'],
+      [/^Or 4 interest-free payments of (\S+)\.$/, '也可分 4 期免息付款，每期 $1。'],
+    ],
+    zhKeep: ['Lumen', 'EVA', 'LO-ATP-CRB'],
+  });
+})(typeof WatchFixtures !== 'undefined' ? WatchFixtures : globalThis.WatchFixtures);

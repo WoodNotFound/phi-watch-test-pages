@@ -1,0 +1,46 @@
+(function (WF) {
+  'use strict';
+  WF.i18n.add('page-gone', {
+    zh: {
+      Atlases: '地图集',
+      'First edition': '第一版',
+      'Dispatched within 1 business day.': '1 个工作日内发货。',
+      '320 pages, 140 hand-drawn maps': '320 页，140 幅手绘地图',
+      '352 pages, 160 hand-drawn maps': '352 页，160 幅手绘地图',
+      'Clothbound with ribbon marker': '布面精装，附丝带书签',
+      'Printed on FSC paper': '使用 FSC 认证纸张印刷',
+      "A cartographer's journey to fifty of the quietest places on earth, from salt flats to sound-proofed chapels. Each chapter pairs an essay with a hand-drawn map.":
+        '一位制图师走访地球上五十个最安静的地方，从盐沼到隔音的小教堂。每一章都配有一篇随笔和一幅手绘地图。',
+      Pages: '页数',
+      Publisher: '出版社',
+      'Lanternfield Press (fictional)': 'Lanternfield Press（虚构）',
+      Edition: '版本',
+      'Lovely object': '很美的一本书',
+      'The maps alone are worth it.': '光是地图就值了。',
+      'No longer available': '已停售',
+      'This product is no longer available': '此商品已停售',
+      'Similar books': '相似图书',
+      'This product has moved': '此商品已移至新页面',
+      'Go to the new page': '前往新页面',
+      'Page not found': '找不到页面',
+      "We couldn't find that page": '找不到这个页面',
+      'The page you are looking for does not exist or is not available yet.': '你要找的页面不存在，或者还没有上线。',
+      'Browse all books': '浏览全部图书',
+      'You were looking for': '你要找的是',
+      '? This is the revised edition, which replaces the first edition.': '？这是修订版，取代了第一版。',
+      'Revised and expanded': '修订增补版',
+      'Eight new chapters': '新增八章',
+      'The revised edition adds eight new chapters and updated maps throughout.': '修订版新增八章，全书地图均已更新。',
+      'Revised edition': '修订版',
+    },
+    zhPatterns: [
+      [/^by (.+)$/, function (m, tr) { return m[1].split(' · ').map(function (x, i) { return i === 0 ? x + ' 著' : tr(x); }).join(' · '); }],
+      [/^(.+) — Revised Edition \(Hardcover\)$/, '$1（修订版，精装）'],
+      [/^(.+) — Revised Edition$/, '$1（修订版）'],
+      [/^(.+) \(Hardcover\)$/, '$1（精装）'],
+      [/^(.+) has been discontinued by the publisher and can no longer be ordered\.$/, function (m, tr) { return tr(m[1]) + ' 已被出版社停印，无法再订购。'; }],
+      [/^(.+) now has a new page for its revised edition\.$/, '$1 的修订版已有新页面。'],
+    ],
+    zhKeep: ['Atlas of Quiet Places', 'Linnea Harwood', 'Lanternfield Press', 'The Slow Road North', 'Islands of Fog', 'FSC', 'NWB'],
+  });
+})(typeof WatchFixtures !== 'undefined' ? WatchFixtures : globalThis.WatchFixtures);

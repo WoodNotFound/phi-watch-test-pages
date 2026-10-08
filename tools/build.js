@@ -30,6 +30,10 @@ function loadFixtures() {
     .filter(function (f) { return /\.js$/.test(f); })
     .sort()
     .forEach(function (f) { require(path.join(ROOT, 'assets/scenarios', f)); });
+  fs.readdirSync(path.join(ROOT, 'assets/i18n'))
+    .filter(function (f) { return /\.js$/.test(f); })
+    .sort()
+    .forEach(function (f) { require(path.join(ROOT, 'assets/i18n', f)); });
   return WF;
 }
 
@@ -115,6 +119,7 @@ function buildModel(WF, meta) {
         now: 'Optional epoch milliseconds that pins the current time (harness convenience). Live pages advance from it in real time.',
         seed: 'Optional string mixed into every PRNG (only affects noise, never watched values, except the late-render delay). Default "1".',
         debug: '1 appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all.',
+        lang: 'en or zh: the page language. Default: the scenario\'s own (its lang field). Only words change; numbers, prices, currencies and the timeline are the same in both languages, so this answer key holds for either.',
       },
       phase: 'rawPhase = max(0, floor((now - t0) / (step * 1000))); phase = min(rawPhase, phaseCount - 1) (all scenarios hold at their last phase; none loops).',
       phaseStart: 'phase k starts at t0 + k * step * 1000 ms',
@@ -154,6 +159,8 @@ function shell(def, view) {
     '<script src="' + root + 'assets/core.js"></script>\n' +
     '<script src="' + root + 'assets/shop.js"></script>\n' +
     '<script src="' + root + 'assets/scenarios/' + def.id + '.js"></script>\n' +
+    '<script src="' + root + 'assets/i18n/common.js"></script>\n' +
+    '<script src="' + root + 'assets/i18n/' + def.id + '.js"></script>\n' +
     "<script>WatchFixtures.mount('" + def.id + "', { view: '" + (view ? view.view : 'main') + "', root: '" + root + "' });</script>\n" +
     '</body>\n' +
     '</html>\n'
@@ -188,10 +195,11 @@ function indexHtml(model) {
     '<span>t0 = <code id="t0">(static links: default t0 = midnight UTC)</code></span>' +
     '<button class="btn secondary" type="button" id="reset" style="padding:5px 12px">Set t0 = now</button>' +
     '<label>step <select id="step"><option value="10">10 s</option><option value="60">60 s</option><option value="300">5 min</option><option value="600" selected>10 min (default)</option><option value="3600">1 h</option></select></label>' +
+    '<label>language <select id="lang"><option value="" selected>page default</option><option value="en">English (en)</option><option value="zh">中文 (zh)</option></select></label>' +
     '<label><input type="checkbox" id="debug"> debug panel</label>' +
     '<a href="scenarios.json">scenarios.json</a><a href="' + REPO_URL + '">README / source</a></div></div>\n' +
     '<main class="wrap">\n<section class="doc"><h2 style="margin-top:24px">Time model</h2>' +
-    '<p><code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.</p>' +
+    '<p><code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise), <code>lang=en|zh</code> (page language; default: the scenario\'s own; only words change, never numbers or prices). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.</p>' +
     '<p>The links below carry <code>t0</code> = the moment you opened this index (set by script) and the chosen <code>step</code>. Without script they point at the bare paths (default t0).</p></section>\n' +
     '<ol class="list">\n' + rows + '\n</ol>\n</main>\n' +
     '<footer class="fixture-footer">' + FOOTER + '</footer>\n' +
@@ -200,17 +208,20 @@ function indexHtml(model) {
     '  var t0 = Date.now();\n' +
     '  var step = document.getElementById("step");\n' +
     '  var debug = document.getElementById("debug");\n' +
+    '  var lang = document.getElementById("lang");\n' +
     '  function apply() {\n' +
     '    document.getElementById("t0").textContent = t0 + " (" + new Date(t0).toISOString() + ")";\n' +
-    '    var q = "?t0=" + t0 + "&step=" + step.value + (debug.checked ? "&debug=1" : "");\n' +
+    '    var lq = lang.value ? "&lang=" + lang.value : "";\n' +
+    '    var q = "?t0=" + t0 + "&step=" + step.value + lq + (debug.checked ? "&debug=1" : "");\n' +
     '    Array.prototype.forEach.call(document.querySelectorAll(".sc"), function (li) {\n' +
     '      li.querySelector("a.go").href = li.getAttribute("data-path") + q;\n' +
-    '      li.querySelector("a.dbg").href = li.getAttribute("data-path") + "?t0=" + t0 + "&step=" + step.value + "&debug=1";\n' +
+    '      li.querySelector("a.dbg").href = li.getAttribute("data-path") + "?t0=" + t0 + "&step=" + step.value + lq + "&debug=1";\n' +
     '    });\n' +
     '  }\n' +
     '  document.getElementById("reset").addEventListener("click", function () { t0 = Date.now(); apply(); });\n' +
     '  step.addEventListener("change", apply);\n' +
     '  debug.addEventListener("change", apply);\n' +
+    '  lang.addEventListener("change", apply);\n' +
     '  apply();\n' +
     '})();\n' +
     '</script>\n</body>\n</html>\n'
@@ -241,6 +252,7 @@ function readme(model) {
     '| `now` | Optional epoch ms that pins the current time (live pages advance from it in real time) | real clock |',
     '| `seed` | Optional string mixed into the PRNG (noise only; also the late-render delay) | `1` |',
     '| `debug` | `1` appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all | off |',
+    '| `lang` | `en` or `zh`: the page language. Only words change; numbers, prices, currencies and the timeline are identical, so `scenarios.json` holds for both | the scenario\'s own (`zh` for `zh-price`, otherwise `en`) |',
     '',
     '```',
     'rawPhase = max(0, floor((now - t0) / (step * 1000)))',
@@ -253,6 +265,12 @@ function readme(model) {
     'To drive a scenario, pick `t0` and `step`, then open `' + BASE_URL + 's/<id>/?t0=<t0>&step=<step>` whenever the watcher checks. With `step=60` phase *k* is live from `t0 + 60k` to `t0 + 60(k+1)` seconds. To check a specific phase directly, add `now=<t0 + k*step*1000 + 1000>`.',
     '',
     'GitHub Pages serves every page with HTTP 200, so the "error", "gone" and "moved" states are page content (and the redirect in `page-gone` is client-side).',
+    '',
+    '## Languages',
+    '',
+    'Every page exists in English and Chinese. Scenario code is written in the page\'s own language; `?lang=` asks for the other one, and `assets/core.js` translates the page on the client with the dictionaries in `assets/i18n/` (`common.js` for the shared store chrome, one file per scenario). Every text node and the `placeholder`, `aria-label`, `alt` and `title` attributes are translated, including text a scenario inserts later (a `MutationObserver`); dates and relative times are converted first. Brand, product and people\'s names, SKUs, numbers, prices and currencies stay as they are. The internal links and the `page-gone` redirect keep the query string, so the language survives them.',
+    '',
+    '`node tools/i18n-extract.js --lang zh --untranslated` lists rendered text that still contains Latin words after translating (names on a scenario\'s keep list excepted); `--lang en --only zh-price` does the same the other way. Text a scenario inserts after load is checked by `tools/validate.js`, which also loads every phase of every page in the other language.',
     '',
     '## scenarios.json',
     '',
@@ -278,6 +296,7 @@ function readme(model) {
     '',
     '```',
     'node tools/build.js            # regenerate scenarios.json, s/*/index.html, index.html, README.md',
+    'node tools/i18n-extract.js --lang zh --untranslated   # rendered text the zh dictionaries miss',
     'node tools/build.js --check    # fail if a generated file is stale',
     'node tools/validate.js         # logic checks + every phase of every page in headless Chromium',
     'node tools/validate.js --base ' + BASE_URL + '   # same checks against the live site',

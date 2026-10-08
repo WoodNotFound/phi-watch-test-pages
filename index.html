@@ -18,9 +18,9 @@
 </head>
 <body class="ix">
 <header><div class="wrap"><h1>Page-watching test fixtures</h1><p>Static pages for testing an agent that periodically opens a page, reads a value the user cares about, compares it with earlier checks, and decides whether to notify the user or stop. Every page's state is a pure function of the current time and its URL parameters, so the right answer is known in advance. All stores, brands and products are fictional.</p></div></header>
-<div class="controls"><div class="wrap"><span>t0 = <code id="t0">(static links: default t0 = midnight UTC)</code></span><button class="btn secondary" type="button" id="reset" style="padding:5px 12px">Set t0 = now</button><label>step <select id="step"><option value="10">10 s</option><option value="60">60 s</option><option value="300">5 min</option><option value="600" selected>10 min (default)</option><option value="3600">1 h</option></select></label><label><input type="checkbox" id="debug"> debug panel</label><a href="scenarios.json">scenarios.json</a><a href="https://github.com/WoodNotFound/phi-watch-test-pages">README / source</a></div></div>
+<div class="controls"><div class="wrap"><span>t0 = <code id="t0">(static links: default t0 = midnight UTC)</code></span><button class="btn secondary" type="button" id="reset" style="padding:5px 12px">Set t0 = now</button><label>step <select id="step"><option value="10">10 s</option><option value="60">60 s</option><option value="300">5 min</option><option value="600" selected>10 min (default)</option><option value="3600">1 h</option></select></label><label>language <select id="lang"><option value="" selected>page default</option><option value="en">English (en)</option><option value="zh">中文 (zh)</option></select></label><label><input type="checkbox" id="debug"> debug panel</label><a href="scenarios.json">scenarios.json</a><a href="https://github.com/WoodNotFound/phi-watch-test-pages">README / source</a></div></div>
 <main class="wrap">
-<section class="doc"><h2 style="margin-top:24px">Time model</h2><p><code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.</p><p>The links below carry <code>t0</code> = the moment you opened this index (set by script) and the chosen <code>step</code>. Without script they point at the bare paths (default t0).</p></section>
+<section class="doc"><h2 style="margin-top:24px">Time model</h2><p><code>phase = max(0, floor((now − t0) / (step × 1000)))</code>, held at the last listed phase. Parameters: <code>t0</code> (epoch ms, default: most recent midnight UTC), <code>step</code> (seconds, default 600), <code>now</code> (optional epoch ms to pin the clock), <code>seed</code> (optional, noise only), <code>debug=1</code> (answer-key panel; absent from the DOM otherwise), <code>lang=en|zh</code> (page language; default: the scenario's own; only words change, never numbers or prices). Pages compute their state on load only; <em>live-ticker</em> is the one page that updates itself.</p><p>The links below carry <code>t0</code> = the moment you opened this index (set by script) and the chosen <code>step</code>. Without script they point at the bare paths (default t0).</p></section>
 <ol class="list">
 <li class="sc" data-path="s/price-step-down/"><div class="sc-head"><span class="num">1</span><h2><a class="go" href="s/price-step-down/">Price step-down</a></h2></div><p>Lumen Outfitters product page for the &quot;Trailhead 28L Daypack&quot; with full page furniture (breadcrumbs, gallery, description, specifications, reviews, related products). The price steps down over the phases: $59.99 → $59.99 → $54.99 → $49.99 → $44.99 → $39.99. Once discounted, a struck-through &quot;Was $59.99&quot; and a &quot;Save …&quot; badge appear, and the related products carry their own static prices.</p><p class="meta"><code>s/price-step-down/</code> · 6 phases · watched: price, priceText · <a class="dbg" href="s/price-step-down/?debug=1">with debug panel</a></p></li>
 <li class="sc" data-path="s/stock-cycle/"><div class="sc-head"><span class="num">2</span><h2><a class="go" href="s/stock-cycle/">Stock cycle</a></h2></div><p>Harbor &amp; Pine Home product page for a &quot;Stoneware Pour-Over Kettle&quot; ($34.00, never changes). Availability cycles: In stock → In stock → &quot;Only 3 left in stock&quot; → Out of stock (with &quot;Expected back in stock on &lt;t0 + 5 days&gt;&quot;) → Out of stock → In stock with a &quot;Back in stock!&quot; notice → In stock.</p><p class="meta"><code>s/stock-cycle/</code> · 7 phases · watched: stock, stockText · <a class="dbg" href="s/stock-cycle/?debug=1">with debug panel</a></p></li>
@@ -53,17 +53,20 @@
   var t0 = Date.now();
   var step = document.getElementById("step");
   var debug = document.getElementById("debug");
+  var lang = document.getElementById("lang");
   function apply() {
     document.getElementById("t0").textContent = t0 + " (" + new Date(t0).toISOString() + ")";
-    var q = "?t0=" + t0 + "&step=" + step.value + (debug.checked ? "&debug=1" : "");
+    var lq = lang.value ? "&lang=" + lang.value : "";
+    var q = "?t0=" + t0 + "&step=" + step.value + lq + (debug.checked ? "&debug=1" : "");
     Array.prototype.forEach.call(document.querySelectorAll(".sc"), function (li) {
       li.querySelector("a.go").href = li.getAttribute("data-path") + q;
-      li.querySelector("a.dbg").href = li.getAttribute("data-path") + "?t0=" + t0 + "&step=" + step.value + "&debug=1";
+      li.querySelector("a.dbg").href = li.getAttribute("data-path") + "?t0=" + t0 + "&step=" + step.value + lq + "&debug=1";
     });
   }
   document.getElementById("reset").addEventListener("click", function () { t0 = Date.now(); apply(); });
   step.addEventListener("change", apply);
   debug.addEventListener("change", apply);
+  lang.addEventListener("change", apply);
   apply();
 })();
 </script>

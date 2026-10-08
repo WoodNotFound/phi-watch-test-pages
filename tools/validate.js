@@ -131,6 +131,16 @@ var HELPERS =
   'const waitFor=async(s,ms)=>{const t=Date.now();while(Date.now()-t<ms){if(document.querySelector(s))return true;await sleep(50)}return false};' +
   'const common=()=>({footer:T(".fixture-footer"),debug:!!document.getElementById("wf-debug"),path:location.pathname,search:location.search,title:document.title});';
 
+/** Every visible text, translatable attribute and the title, as the page shows them now. */
+var SCAN =
+  '(()=>{const out=[];const skip=e=>e.tagName==="SCRIPT"||e.tagName==="STYLE"||e.id==="wf-debug";' +
+  'const w=document.createTreeWalker(document.body,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT,{acceptNode:n=>n.nodeType===1&&skip(n)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});' +
+  'let n;while((n=w.nextNode())){if(n.nodeType===3){const t=n.nodeValue.replace(/\\s+/g," ").trim();if(t)out.push(t)}' +
+  'else{for(const a of ["placeholder","aria-label","alt","title"]){const v=n.getAttribute(a);if(v&&v.trim())out.push(v.trim())}}}' +
+  'out.push(document.title);return {texts:out,lang:document.documentElement.lang,footer:(document.querySelector(".fixture-footer")||{}).textContent}})()';
+
+var REVEAL = '(async()=>{document.querySelectorAll("[aria-expanded=false]").forEach(b=>b.click());await new Promise(r=>setTimeout(r,300));return 1})()';
+
 function eqMsg(errs, label, got, want) {
   if (!R.eq(got, want)) errs.push(label + ': got ' + JSON.stringify(got) + ', want ' + JSON.stringify(want));
 }
@@ -521,6 +531,16 @@ async function browserChecks() {
         jobs.push({ s: s, pk: pk, probe: probe, k: k, now: now, query: q, t0: T0, kind: 'pinned' });
       });
     });
+    // the other language: every phase, after the probe's clicks and waits
+    var other = s.lang.indexOf('zh') === 0 ? 'en' : 'zh';
+    probeKeys.forEach(function (pk) {
+      var probe = PROBES[pk];
+      if (!probe) return;
+      s.phases.forEach(function (ph, k) {
+        var now = T0 + k * STEP * 1000 + 30000;
+        jobs.push({ s: s, pk: pk, probe: probe, k: k, now: now, t0: T0, lang: other, query: query({ t0: T0, step: STEP, now: now, lang: other }), kind: 'translated' });
+      });
+    });
     // real clock (no ?now=): t0 chosen so that the page is 20 s into phase k
     var k2 = Math.min(2, s.phaseCount - 1);
     jobs.push({ s: s, pk: s.id, probe: PROBES[s.id], k: k2, kind: 'real-clock' });
@@ -550,8 +570,32 @@ async function browserChecks() {
       }
       var label = j.pk + ' phase ' + j.k + ' [' + j.kind + ']';
       try {
-        var got = await run(b.cdp, tab, url, j.probe.js, j.probe.settleMs);
+        // Translated runs scan the page three times: as loaded (before the probe clicks
+        // anything away, e.g. the consent dialog), after the probe, and with every
+        // collapsed disclosure opened (the probe may close what it opened).
+        var probeJs = j.kind === 'translated' ? 'globalThis.__scanLoaded=' + SCAN + ';' + j.probe.js : j.probe.js;
+        var got = await run(b.cdp, tab, url, probeJs, j.probe.settleMs);
         var errs = [];
+        if (j.kind === 'translated') {
+          var loadedScan = (await b.cdp.send('Runtime.evaluate', { expression: 'globalThis.__scanLoaded', returnByValue: true }, tab.sid)).result.value;
+          var afterProbe = (await b.cdp.send('Runtime.evaluate', { expression: SCAN, returnByValue: true }, tab.sid)).result.value;
+          await b.cdp.send('Runtime.evaluate', { expression: REVEAL, awaitPromise: true, returnByValue: true }, tab.sid);
+          var sv = (await b.cdp.send('Runtime.evaluate', { expression: SCAN, returnByValue: true }, tab.sid)).result.value;
+          sv.texts = loadedScan.texts.concat(afterProbe.texts, sv.texts);
+          eqMsg(errs, 'html lang', sv.lang, j.lang === 'zh' ? 'zh-CN' : 'en');
+          eqMsg(errs, 'fixture footer', sv.footer, WF.i18n.text(FOOTER, j.lang, j.s.id));
+          eqMsg(errs, 'debug panel absent', got.__common.debug, false);
+          var miss = sv.texts.filter(function (t, i, a) { return a.indexOf(t) === i && WF.i18n.missing(t, j.lang, j.s.id); });
+          if (miss.length) errs.push('untranslated (' + miss.length + '): ' + miss.slice(0, 6).map(function (t) { return JSON.stringify(t.slice(0, 80)); }).join(', '));
+          tab.requests.forEach(function (u) {
+            if (!/^(data:|about:)/.test(u) && u.indexOf(origin) !== 0) errs.push('request left the site: ' + u);
+          });
+          tab.errors.forEach(function (e) { errs.push('page error: ' + e); });
+          if (errs.length) failures.push(label + ' [' + j.lang + ']: ' + errs.join('; '));
+          else passes++;
+          done++;
+          continue;
+        }
         var entry = WF.registry[j.s.id].timeline[j.k];
         j.probe.check(got, entry, errs, { t0: j.t0, now: j.now, query: j.query, common: got.__common, phase: j.k });
         eqMsg(errs, 'fixture footer', got.__common.footer, FOOTER);

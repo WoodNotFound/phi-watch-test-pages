@@ -15,6 +15,7 @@ All stores, brands, products, people and services here are fictional. Every page
 | `now` | Optional epoch ms that pins the current time (live pages advance from it in real time) | real clock |
 | `seed` | Optional string mixed into the PRNG (noise only; also the late-render delay) | `1` |
 | `debug` | `1` appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all | off |
+| `lang` | `en` or `zh`: the page language. Only words change; numbers, prices, currencies and the timeline are identical, so `scenarios.json` holds for both | the scenario's own (`zh` for `zh-price`, otherwise `en`) |
 
 ```
 rawPhase = max(0, floor((now - t0) / (step * 1000)))
@@ -27,6 +28,12 @@ Pages compute their state once, on load; there is no auto-refresh. The only exce
 To drive a scenario, pick `t0` and `step`, then open `https://woodnotfound.github.io/phi-watch-test-pages/s/<id>/?t0=<t0>&step=<step>` whenever the watcher checks. With `step=60` phase *k* is live from `t0 + 60k` to `t0 + 60(k+1)` seconds. To check a specific phase directly, add `now=<t0 + k*step*1000 + 1000>`.
 
 GitHub Pages serves every page with HTTP 200, so the "error", "gone" and "moved" states are page content (and the redirect in `page-gone` is client-side).
+
+## Languages
+
+Every page exists in English and Chinese. Scenario code is written in the page's own language; `?lang=` asks for the other one, and `assets/core.js` translates the page on the client with the dictionaries in `assets/i18n/` (`common.js` for the shared store chrome, one file per scenario). Every text node and the `placeholder`, `aria-label`, `alt` and `title` attributes are translated, including text a scenario inserts later (a `MutationObserver`); dates and relative times are converted first. Brand, product and people's names, SKUs, numbers, prices and currencies stay as they are. The internal links and the `page-gone` redirect keep the query string, so the language survives them.
+
+`node tools/i18n-extract.js --lang zh --untranslated` lists rendered text that still contains Latin words after translating (names on a scenario's keep list excepted); `--lang en --only zh-price` does the same the other way. Text a scenario inserts after load is checked by `tools/validate.js`, which also loads every phase of every page in the other language.
 
 ## scenarios.json
 
@@ -74,6 +81,7 @@ See `scenarios.json` or open any page with `?debug=1` for the full timelines.
 
 ```
 node tools/build.js            # regenerate scenarios.json, s/*/index.html, index.html, README.md
+node tools/i18n-extract.js --lang zh --untranslated   # rendered text the zh dictionaries miss
 node tools/build.js --check    # fail if a generated file is stale
 node tools/validate.js         # logic checks + every phase of every page in headless Chromium
 node tools/validate.js --base https://woodnotfound.github.io/phi-watch-test-pages/   # same checks against the live site

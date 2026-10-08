@@ -12,6 +12,9 @@
  *   now   optional epoch ms that pins "current time" (harness convenience)
  *   seed  optional string mixed into every PRNG (default "1")
  *   debug 1 shows the answer-key panel at the bottom (absent from the DOM otherwise)
+ *   lang  en | zh: the page language (default: the scenario's own, English except zh-price).
+ *         Only words change: numbers, prices, currencies and the timeline are the same in
+ *         every language, so scenarios.json holds for both.
  *
  *   rawPhase = max(0, floor((now - t0) / (step * 1000)))
  *   phase    = min(rawPhase, phaseCount - 1)          (or rawPhase % phaseCount if the scenario loops)
@@ -78,11 +81,13 @@
     var step = toNum(q.get('step'), DEFAULT_STEP_S);
     if (!(step > 0)) step = DEFAULT_STEP_S;
     var dbg = q.get('debug');
+    var lang = (q.get('lang') || '').toLowerCase();
     return {
       now: now,
       t0: t0,
       step: step,
       seed: q.get('seed') || '1',
+      lang: lang === 'zh' || lang === 'zh-cn' ? 'zh' : lang === 'en' ? 'en' : null,
       debug: dbg === '1' || dbg === 'true',
       nowPinned: nowPinned,
       search: search || '',
@@ -117,6 +122,8 @@
       view: opts.view || 'main',
       root: opts.root || '../../',
       entry: def.timeline[at.phase],
+      nativeLang: nativeLang(def),
+      lang: p.lang || nativeLang(def),
     };
     ctx.startOf = function (k) {
       return p.t0 + k * stepMs;
@@ -260,6 +267,221 @@
     return path + (search || '');
   }
 
+  // ---------------------------------------------------------------- language
+  /*
+   * Scenario code is written in the page's own language (def.lang, English
+   * unless set). When ?lang= asks for the other one, the page is translated on
+   * the client: every text node and the placeholder / aria-label / alt / title
+   * attributes go through the dictionaries in assets/i18n/, including text a
+   * scenario inserts later (a MutationObserver), so scenario logic stays in one
+   * language and the timeline cannot drift between languages.
+   *
+   * An entry matches a whole text node with its whitespace collapsed. Dates and
+   * relative times are converted first, so patterns see them in the target
+   * language. Text without an entry stays as it is: brand, product and people's
+   * names, SKUs, numbers and prices.
+   */
+  function nativeLang(def) {
+    return def.lang && def.lang.indexOf('zh') === 0 ? 'zh' : 'en';
+  }
+
+  var dicts = {}; // dicts[lang][scope] = { exact, patterns, keep }; scope '*' is shared
+
+  function collapse(s) {
+    return String(s).replace(/\s+/g, ' ').trim();
+  }
+
+  function addTranslations(scope, spec) {
+    Object.keys(spec).forEach(function (key) {
+      var m = /^(en|zh)(Patterns|Keep)?$/.exec(key);
+      if (!m) throw new Error('i18n: unknown key ' + key + ' in ' + scope);
+      var byScope = (dicts[m[1]] = dicts[m[1]] || {});
+      var d = (byScope[scope] = byScope[scope] || { exact: {}, patterns: [], keep: [] });
+      if (m[2] === 'Patterns') d.patterns = d.patterns.concat(spec[key]);
+      else if (m[2] === 'Keep') d.keep = d.keep.concat(spec[key]);
+      else
+        Object.keys(spec[key]).forEach(function (k) {
+          d.exact[collapse(k)] = spec[key][k];
+        });
+    });
+  }
+
+  var MONTH_RE = MONTHS.join('|');
+  var MONTH3_RE = MONTHS.map(function (m) { return m.slice(0, 3); }).join('|');
+  var WEEKDAY_RE = WEEKDAYS.join('|');
+  var WEEKDAY3_RE = WEEKDAYS.map(function (d) { return d.slice(0, 3); }).join('|');
+  var ZH_WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+  var ZH_UNIT = { second: '秒', minute: '分钟', hour: '小时', day: '天', week: '周', month: '个月', year: '年' };
+
+  function monthIndex(name) {
+    for (var i = 0; i < 12; i++) if (MONTHS[i].indexOf(name) === 0) return i;
+    return -1;
+  }
+  function weekdayIndex(name) {
+    for (var i = 0; i < 7; i++) if (WEEKDAYS[i].indexOf(name) === 0) return i;
+    return -1;
+  }
+
+  /** Dates, relative times and durations in the target language (the words around them stay). */
+  var generic = {
+    zh: function (s) {
+      return s
+        .replace(new RegExp('\\b(' + WEEKDAY_RE + '), (' + MONTH_RE + ') (\\d{1,2}), (\\d{4})\\b', 'g'), function (_, w, mo, d, y) {
+          return y + '年' + (monthIndex(mo) + 1) + '月' + d + '日（星期' + ZH_WEEKDAY[weekdayIndex(w)] + '）';
+        })
+        .replace(new RegExp('\\b(' + WEEKDAY3_RE + '), (' + MONTH3_RE + ') (\\d{1,2})\\b', 'g'), function (_, w, mo, d) {
+          return monthIndex(mo) + 1 + '月' + d + '日（周' + ZH_WEEKDAY[weekdayIndex(w)] + '）';
+        })
+        .replace(new RegExp('\\b(' + MONTH_RE + '|' + MONTH3_RE + ') (\\d{1,2}), (\\d{4})\\b', 'g'), function (_, mo, d, y) {
+          return y + '年' + (monthIndex(mo) + 1) + '月' + d + '日';
+        })
+        .replace(/(\d{4}年\d{1,2}月\d{1,2}日), (\d{2}:\d{2} UTC)/g, '$1 $2')
+        .replace(/\bjust now\b/g, '刚刚')
+        .replace(/\bless than a minute\b/g, '不到 1 分钟')
+        .replace(/\b(\d+) (second|minute|hour|day|week|month|year)s? ago\b/g, function (_, n, u) {
+          return n + ' ' + ZH_UNIT[u] + '前';
+        })
+        .replace(/\b(\d+) (day|hour|minute)s? (\d+) (hour|minute)s?\b/g, function (_, a, u1, b, u2) {
+          return a + ' ' + ZH_UNIT[u1] + ' ' + b + ' ' + ZH_UNIT[u2];
+        })
+        .replace(/\b(\d+) (day|hour|minute)s?\b/g, function (_, n, u) {
+          return n + ' ' + ZH_UNIT[u];
+        });
+    },
+    en: function (s) {
+      return s
+        .replace(/(\d{4})年(\d{1,2})月(\d{1,2})日/g, function (_, y, m, d) {
+          return MONTHS[m - 1] + ' ' + d + ', ' + y;
+        })
+        .replace(/(\d{1,2})月(\d{1,2})日/g, function (_, m, d) {
+          return MONTHS[m - 1].slice(0, 3) + ' ' + d;
+        });
+    },
+  };
+
+  function scopes(lang, scope) {
+    var byScope = dicts[lang] || {};
+    return [byScope[scope], byScope['*']].filter(Boolean);
+  }
+
+  function lookup(lang, scope, s) {
+    var list = scopes(lang, scope);
+    for (var i = 0; i < list.length; i++) if (Object.prototype.hasOwnProperty.call(list[i].exact, s)) return list[i].exact[s];
+    return null;
+  }
+
+  function byPattern(lang, scope, s) {
+    var list = scopes(lang, scope);
+    var tr = function (x) {
+      return translateText(x, lang, scope);
+    };
+    for (var i = 0; i < list.length; i++) {
+      for (var j = 0; j < list[i].patterns.length; j++) {
+        var re = list[i].patterns[j][0];
+        var rep = list[i].patterns[j][1];
+        var m = re.exec(s);
+        if (!m) continue;
+        return typeof rep === 'function' ? rep(m, tr) : s.replace(re, rep);
+      }
+    }
+    return null;
+  }
+
+  /** Translate one text (a text node's value or an attribute) into lang. */
+  function translateText(s, lang, scope) {
+    var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(String(s));
+    var core = collapse(m[2]);
+    if (!core) return s;
+    var hit = lookup(lang, scope, core);
+    if (hit === null) {
+      var g = generic[lang] ? generic[lang](core) : core;
+      if (g !== core) hit = lookup(lang, scope, g);
+      if (hit === null) hit = byPattern(lang, scope, g);
+      if (hit === null && g !== core) hit = g;
+    }
+    return hit === null ? s : m[1] + hit + m[3];
+  }
+
+  /** Words of a scope that legitimately stay Latin in lang (names, SKUs); used by tools/i18n-extract.js. */
+  function keepPattern(scope, lang) {
+    var words = [];
+    scopes(lang || 'zh', scope).forEach(function (d) {
+      words = words.concat(d.keep);
+    });
+    if (!words.length) return /$^/;
+    words.sort(function (a, b) { return b.length - a.length; });
+    var alt = words.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|');
+    return new RegExp('(?<![A-Za-z])(?:' + alt + ')(?![A-Za-z])', 'g');
+  }
+
+  /**
+   * Whether a shown text still reads in the source language after translating
+   * into lang: Han characters for en; for zh, Latin words other than the
+   * scope's keep list, people's names ("Mara K.") and codes (SKUs, references).
+   */
+  function missing(text, lang, scope) {
+    if (lang === 'en') return /[\u3400-\u9fff]/.test(text);
+    var rest = String(text)
+      .replace(keepPattern(scope, lang), '')
+      .replace(/\p{Lu}\p{Ll}+ \p{Lu}\./gu, '')
+      .replace(/#?[A-Z][A-Z0-9]*(?:-[A-Za-z0-9]+)+/g, '');
+    return /[A-Za-z]{2,}/.test(rest);
+  }
+
+  var ATTRS = ['placeholder', 'aria-label', 'alt', 'title'];
+
+  function translateAttrs(el, lang, scope) {
+    ATTRS.forEach(function (a) {
+      var v = el.getAttribute(a);
+      if (v === null) return;
+      var t = translateText(v, lang, scope);
+      if (t !== v) el.setAttribute(a, t);
+    });
+  }
+
+  function skipped(el) {
+    return el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.id === 'wf-debug';
+  }
+
+  function translateNode(node, lang, scope) {
+    if (node.nodeType === 3) {
+      var t = translateText(node.nodeValue, lang, scope);
+      if (t !== node.nodeValue) node.nodeValue = t;
+      return;
+    }
+    if (node.nodeType !== 1 || skipped(node)) return;
+    translateAttrs(node, lang, scope);
+    var walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        return n.nodeType === 1 && skipped(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    var n;
+    while ((n = walker.nextNode())) {
+      if (n.nodeType === 3) {
+        var v = translateText(n.nodeValue, lang, scope);
+        if (v !== n.nodeValue) n.nodeValue = v;
+      } else {
+        translateAttrs(n, lang, scope);
+      }
+    }
+  }
+
+  /** Keep translating whatever the scenario changes after the first render. */
+  function watchTranslations(lang, scope) {
+    new MutationObserver(function (records) {
+      records.forEach(function (r) {
+        if (r.type === 'characterData') translateNode(r.target, lang, scope);
+        else if (r.type === 'attributes') {
+          if (r.target.nodeType === 1 && !skipped(r.target)) translateAttrs(r.target, lang, scope);
+        } else
+          Array.prototype.forEach.call(r.addedNodes, function (n) {
+            translateNode(n, lang, scope);
+          });
+      });
+    }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+
   // ---------------------------------------------------------------- registry / mount
   var registry = {};
   var order = [];
@@ -350,6 +572,12 @@
     app.innerHTML = out;
     if (def.after) def.after(app, ctx, state);
     if (p.debug) renderDebug(def, ctx, state);
+    document.documentElement.lang = ctx.lang === 'zh' ? 'zh-CN' : 'en';
+    if (ctx.lang !== ctx.nativeLang) {
+      document.title = translateText(document.title, ctx.lang, def.id);
+      translateNode(document.body, ctx.lang, def.id);
+      watchTranslations(ctx.lang, def.id);
+    }
   }
 
   var WF = {
@@ -374,6 +602,15 @@
     esc: esc,
     keepParams: keepParams,
     clone: clone,
+    nativeLang: nativeLang,
+    i18n: {
+      add: addTranslations,
+      text: translateText,
+      node: translateNode,
+      keepPattern: keepPattern,
+      missing: missing,
+      dicts: dicts,
+    },
   };
 
   root.WatchFixtures = WF;

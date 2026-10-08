@@ -9,7 +9,8 @@
       "step": "Seconds per phase. Default 600.",
       "now": "Optional epoch milliseconds that pins the current time (harness convenience). Live pages advance from it in real time.",
       "seed": "Optional string mixed into every PRNG (only affects noise, never watched values, except the late-render delay). Default \"1\".",
-      "debug": "1 appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all."
+      "debug": "1 appends an answer-key panel (phase, timeline table, watched value now). Without it the panel is not in the DOM at all.",
+      "lang": "en or zh: the page language. Default: the scenario's own (its lang field). Only words change; numbers, prices, currencies and the timeline are the same in both languages, so this answer key holds for either."
     },
     "phase": "rawPhase = max(0, floor((now - t0) / (step * 1000))); phase = min(rawPhase, phaseCount - 1) (all scenarios hold at their last phase; none loops).",
     "phaseStart": "phase k starts at t0 + k * step * 1000 ms",

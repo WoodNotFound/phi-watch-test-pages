@@ -1,0 +1,48 @@
+(function (WF) {
+  'use strict';
+  WF.i18n.add('status-page', {
+    zh: {
+      'Veltrane Cloud Status': 'Veltrane Cloud 服务状态',
+      Status: '服务状态',
+      'Subscribe to updates': '订阅更新',
+      'All Systems Operational': '所有系统运行正常',
+      'Degraded Performance': '性能下降',
+      'Major System Outage': '系统严重中断',
+      'Partial System Outage': '系统部分中断',
+      'Scheduled maintenance:': '计划维护：',
+      Components: '组件',
+      Operational: '正常运行',
+      'Degraded performance': '性能下降',
+      'Major outage': '严重中断',
+      'Partial outage': '部分中断',
+      Today: '今天',
+      Dashboard: '控制台',
+      'Object Storage': '对象存储',
+      Authentication: '身份认证',
+      'Past incidents': '历史事件',
+      'Elevated error rates on the Dashboard': '控制台错误率升高',
+      'Resolved — A faulty configuration change was rolled back.': '已解决 — 有问题的配置变更已回滚。',
+      'Slow object uploads in us-east': 'us-east 区域对象上传缓慢',
+      'Resolved — Storage nodes were replaced and upload latency returned to normal.': '已解决 — 存储节点已更换，上传延迟已恢复正常。',
+      'Delayed and failing webhook deliveries': 'Webhook 投递延迟和失败',
+      Investigating: '调查中',
+      Identified: '已确认原因',
+      Monitoring: '监控中',
+      Resolved: '已解决',
+      '— We are investigating reports of delayed webhook deliveries. Some events are arriving up to 15 minutes late.': '— 我们正在调查 Webhook 投递延迟的报告。部分事件最多延迟 15 分钟到达。',
+      '— We have identified a failing message broker node in the eu-west region. Webhook deliveries are currently failing for most customers, and API requests may see elevated latency.':
+        '— 我们已确认 eu-west 区域有一个消息代理节点故障。目前大多数客户的 Webhook 投递失败，API 请求的延迟也可能升高。',
+      '— A fix has been deployed and the broker cluster has been rebalanced. Deliveries are resuming; queued events will be delivered in order.': '— 修复已部署，代理集群已重新平衡。投递正在恢复，排队中的事件会按顺序投递。',
+      '— Most of the backlog has been delivered. Some customers may still see delays of up to 5 minutes while the remaining queue drains.': '— 大部分积压已投递完毕。剩余队列清空前，部分客户可能仍会遇到最多 5 分钟的延迟。',
+      '— All queued webhook events have been delivered and delivery latency is back to normal. We will publish a post-incident review within 5 business days.': '— 所有排队的 Webhook 事件都已投递，投递延迟已恢复正常。我们将在 5 个工作日内发布事后复盘。',
+      'Resolved — All queued webhook events have been delivered and delivery latency is back to normal.': '已解决 — 所有排队的 Webhook 事件都已投递，投递延迟已恢复正常。',
+    },
+    zhPatterns: [
+      [/^([\d.]+)% uptime$/, '可用率 $1%'],
+      [/^This incident affected: (.+)\.$/, function (m, tr) { return '受影响的组件：' + m[1].split(', ').map(tr).join('、') + '。'; }],
+      [/^Object Storage metadata database upgrade on (.+), (\d{2}:\d{2}–\d{2}:\d{2} UTC)\. No downtime is expected\.$/, '对象存储元数据数据库将于 $1 $2 升级，预计不会停机。'],
+      [/^Page generated (.+)\. Veltrane Cloud is a fictional service\.$/, '页面生成于 $1。Veltrane Cloud 是虚构的服务。'],
+    ],
+    zhKeep: ['Veltrane Cloud', 'Veltrane', 'Webhooks', 'Webhook', 'API', 'CDN', 'us-east', 'eu-west'],
+  });
+})(typeof WatchFixtures !== 'undefined' ? WatchFixtures : globalThis.WatchFixtures);
